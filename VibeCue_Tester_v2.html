@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeCue Protocol Tester v2.0</title>
+    <style>
+        :root {
+            /* Refined Color Palette - Balanced & Sophisticated */
+            --primary: #6678b8;
+            --primary-dark: #5568a8;
+            --primary-light: #e8ecf6;
+            --primary-hover: #7688c8;
+            --secondary: #8878a8;
+            --success: #5a9e6f;
+            --success-dark: #4a8e5f;
+            --success-light: #e8f4eb;
+            --warning: #d4944a;
+            --warning-dark: #c4843a;
+            --warning-light: #faf3eb;
+            --danger: #c86b6b;
+            --danger-dark: #b85a5a;
+            --danger-light: #faeaea;
+            --bg-main: #f5f6f8;
+            --bg-card: #ffffff;
+            --border: #dde1e8;
+            --border-light: #eaecf0;
+            --text-primary: #3a3f4a;
+            --text-secondary: #6a7080;
+            --text-muted: #9aa0aa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(145deg, #e8eaf0 0%, #f0f2f5 50%, #eef0f2 100%);
+            min-height: 100vh;
+            padding: 8px;
+            font-size: 12px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(60, 70, 90, 0.12);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 12px 15px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            margin-bottom: 2px;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 10px;
+        }
+
+        /* Layout Toggle Button */
+        .layout-toggle {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 4px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .layout-toggle:hover {
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .layout-toggle span {
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .toggle-switch {
+            width: 32px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 9px;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .layout-toggle.tab-mode .toggle-switch::after {
+            left: 16px;
+        }
+
+        .layout-toggle.tab-mode .toggle-switch {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: none;
+            background: var(--bg-main);
+            padding: 8px 10px;
+            gap: 6px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .tab-nav.visible {
+            display: flex;
+        }
+
+        .tab-btn {
+            padding: 6px 12px;
+            border: none;
+            background: white;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 11px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .tab-btn.active-ds {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .tab-btn.active-eval {
+            background: var(--warning);
+            border-color: var(--warning);
+            color: white;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            background: var(--bg-main);
+        }
+
+        /* Tab Mode Styles */
+        .main-content.tab-mode {
+            grid-template-columns: 1fr;
+        }
+
+        .main-content.tab-mode .panel:not(.panel-full) {
+            display: none;
+        }
+
+        .main-content.tab-mode .panel.active-tab {
+            display: block;
+        }
+
+        .main-content.tab-mode .panel-full {
+            display: block;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 1px 4px rgba(60, 70, 90, 0.08);
+            border: 1px solid var(--border-light);
+        }
+
+        .panel-full {
+            grid-column: 1 / -1;
+        }
+
+        .panel h2 {
+            color: var(--primary-dark);
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 6px;
+        }
+
+        .panel-ds h2 {
+            color: var(--success-dark);
+            border-bottom-color: var(--success-light);
+        }
+
+        .panel-eval h2 {
+            color: var(--warning-dark);
+            border-bottom-color: var(--warning-light);
+        }
+
+        /* Bluetooth Connection */
+        .bluetooth-section {
+            margin-bottom: 10px;
+        }
+
+        .connection-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .connection-bar input {
+            flex: 1;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 11px;
+            background: white;
+        }
+
+        .connection-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            box-shadow: 0 2px 8px rgba(102, 120, 184, 0.35);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--danger-dark);
+            box-shadow: 0 2px 8px rgba(200, 107, 107, 0.35);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: var(--success-dark);
+            box-shadow: 0 2px 8px rgba(90, 158, 111, 0.35);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: var(--warning-dark);
+            box-shadow: 0 2px 8px rgba(212, 148, 74, 0.35);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .status-disconnected {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .status-connected {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        /* Command Sections */
+        .command-section {
+            margin-bottom: 12px;
+        }
+
+        .command-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .command-section h3 {
+            color: var(--text-primary);
+            font-size: 11px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            gap: 5px;
+        }
+
+        .command-btn {
+            padding: 8px 4px;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--primary);
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 10px;
+        }
+
+        .command-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(102, 120, 184, 0.3);
+        }
+
+        .command-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Input Groups */
+        .input-group {
+            margin-bottom: 8px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 3px;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 11px;
+            background: white;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        /* Radio Groups */
+        .radio-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 10px;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .radio-group label:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .radio-group input[type="radio"] {
+            width: 12px;
+            height: 12px;
+            accent-color: var(--primary);
+        }
+
+        .radio-group input[type="radio"]:checked + span {
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        /* Checkbox Groups */
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 10px;
+            background: white;
+        }
+
+        .checkbox-label:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .checkbox-label input {
+            width: 12px;
+            height: 12px;
+            accent-color: var(--primary);
+        }
+
+        /* Log Area */
+        .log-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .log-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-box h4 {
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-size: 10px;
+        }
+
+        .log-box textarea {
+            flex: 1;
+            min-height: 80px;
+            padding: 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            resize: vertical;
+            background: var(--bg-main);
+        }
+
+        .log-box textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Device Status */
+        .device-status {
+            background: var(--bg-main);
+            border: 2px solid var(--primary-light);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .device-status h3 {
+            color: var(--primary-dark);
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .status-info {
+            color: var(--text-primary);
+            line-height: 1.5;
+            font-size: 11px;
+        }
+
+        /* EVAL Data Table */
+        .eval-data {
+            margin-top: 10px;
+        }
+
+        .eval-data h3 {
+            font-size: 12px;
+        }
+
+        .eval-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 10px;
+        }
+
+        .eval-table th,
+        .eval-table td {
+            padding: 6px 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .eval-table th {
+            background: var(--warning);
+            color: white;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .eval-table tr:nth-child(even) {
+            background: var(--bg-main);
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .quick-actions button {
+            flex: 1;
+            padding: 5px 8px;
+            font-size: 9px;
+        }
+
+        /* Mode Control Buttons */
+        .mode-controls {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .mode-controls button {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 11px;
+        }
+
+        /* Scan Results */
+        .scan-results-box {
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px;
+            margin-top: 4px;
+            max-height: 60px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 9px;
+        }
+
+        /* Connect Device Row */
+        .connect-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .connect-row input {
+            flex: 1;
+            min-width: 100px;
+            padding: 5px 8px;
+            font-size: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: white;
+        }
+
+        .connect-row select {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 10px;
+            background: white;
+        }
+
+        /* Description text */
+        .mode-desc {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        /* RECON Button Special Style */
+        .recon-btn {
+            background: var(--success) !important;
+            color: white !important;
+            border-color: var(--success) !important;
+        }
+
+        .recon-btn:hover {
+            background: var(--success-dark) !important;
+        }
+
+        /* Responsive - Desktop */
+        @media (min-width: 1200px) {
+            body {
+                padding: 20px;
+                font-size: 14px;
+            }
+
+            .container {
+                border-radius: 24px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .header p {
+                font-size: 12px;
+            }
+
+            .layout-toggle {
+                padding: 6px 14px;
+            }
+
+            .layout-toggle span {
+                font-size: 12px;
+            }
+
+            .toggle-switch {
+                width: 44px;
+                height: 22px;
+            }
+
+            .toggle-switch::after {
+                width: 18px;
+                height: 18px;
+            }
+
+            .layout-toggle.tab-mode .toggle-switch::after {
+                left: 24px;
+            }
+
+            .main-content {
+                gap: 20px;
+                padding: 20px;
+            }
+
+            .panel {
+                padding: 20px;
+                border-radius: 16px;
+            }
+
+            .panel h2 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+
+            .command-section h3 {
+                font-size: 14px;
+                margin-bottom: 10px;
+            }
+
+            .command-grid {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 10px;
+            }
+
+            .command-btn {
+                padding: 12px 8px;
+                font-size: 12px;
+                border-radius: 8px;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 12px;
+                border-radius: 8px;
+            }
+
+            .input-group label {
+                font-size: 12px;
+            }
+
+            .input-group input,
+            .input-group select {
+                padding: 8px 12px;
+                font-size: 13px;
+                border-radius: 8px;
+            }
+
+            .radio-group label {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 8px;
+            }
+
+            .checkbox-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+
+            .checkbox-label {
+                padding: 8px 10px;
+                font-size: 12px;
+                border-radius: 8px;
+            }
+
+            .log-box textarea {
+                min-height: 150px;
+                font-size: 11px;
+                border-radius: 8px;
+            }
+
+            .mode-controls button {
+                padding: 14px 16px;
+                font-size: 14px;
+                border-radius: 10px;
+            }
+
+            .scan-results-box {
+                max-height: 100px;
+                font-size: 11px;
+                border-radius: 8px;
+            }
+
+            .tab-btn {
+                padding: 10px 20px;
+                font-size: 13px;
+                border-radius: 10px;
+            }
+
+            .tab-nav {
+                padding: 12px 20px;
+                gap: 10px;
+            }
+        }
+
+        /* Responsive - Tablet */
+        @media (max-width: 1199px) and (min-width: 769px) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* Responsive - Mobile (720x1280 and similar) */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-full {
+                grid-column: 1;
+            }
+
+            .log-container {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .checkbox-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .layout-toggle {
+                top: 6px;
+                right: 8px;
+            }
+
+            .tab-nav {
+                justify-content: center;
+            }
+        }
+
+        /* Very small screens */
+        @media (max-width: 400px) {
+            .checkbox-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .log-container {
+                grid-template-columns: 1fr;
+            }
+
+            .connect-row {
+                flex-direction: column;
+            }
+
+            .connect-row input,
+            .connect-row select {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>VibeCue GUI v2.0</h1>
+            <p>Motion Cue Solution</p>
+            <div class="layout-toggle" id="layoutToggle" onclick="toggleLayout()">
+                <span>그리드</span>
+                <div class="toggle-switch"></div>
+                <span>탭</span>
+            </div>
+        </div>
+
+        <!-- Tab Navigation (hidden by default) -->
+        <div class="tab-nav" id="tabNav">
+            <button class="tab-btn active" data-tab="dm" onclick="switchTab('dm')">장치 관리</button>
+            <button class="tab-btn" data-tab="man" onclick="switchTab('man')">수동 모드</button>
+            <button class="tab-btn" data-tab="ds" onclick="switchTab('ds')">일상 지원</button>
+            <button class="tab-btn" data-tab="eval" onclick="switchTab('eval')">평가 모드</button>
+        </div>
+
+        <div class="main-content" id="mainContent">
+            <!-- Section 1: Device Management and Connection -->
+            <div class="panel active-tab" id="panel-dm" data-tab="dm">
+                <h2>장치 관리 및 연결</h2>
+
+                <!-- Bluetooth Connection -->
+                <div class="bluetooth-section">
+                    <div class="connection-bar">
+                        <input type="text" id="deviceName" placeholder="장치 이름" value="VIBECUE">
+                        <button class="btn btn-primary" id="connectBtn" onclick="connectBluetooth()">연결</button>
+                        <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectBluetooth()" disabled>해제</button>
+                    </div>
+                    <div id="connectionStatus" class="status-badge status-disconnected">연결 안됨</div>
+                </div>
+
+                <!-- DM Commands -->
+                <div class="command-section">
+                    <h3>장치 타입</h3>
+                    <div class="input-group">
+                        <div class="radio-group">
+                            <label><input type="radio" name="deviceType" value="1"><span>타입 1(센서2)</span></label>
+                            <label><input type="radio" name="deviceType" value="2" checked><span>타입 2(센서2+서브2)</span></label>
+                            <label><input type="radio" name="deviceType" value="3"><span>타입 3(센서1)</span></label>
+                            <label><input type="radio" name="deviceType" value="4"><span>타입 4(센서2+서브4)</span></label>
+                        </div>
+                    </div>
+                    <div class="command-grid">
+                        <button class="command-btn" onclick="sendDeviceType()">타입 설정(DM:TYPE)</button>
+                        <button class="command-btn" onclick="sendCommand('DM:STATUS:REQ')">상태정보 요청 (DM:STATUS)</button>
+                        <button class="command-btn" onclick="sendCommand('DM:RESET:CONFIRM')">장치 초기화 (DM:RESET)</button>
+                    </div>
+                </div>
+
+                <!-- BLE Device Scan -->
+                <div class="command-section">
+                    <h3>BLE 장치 스캔</h3>
+                    <div class="command-grid">
+                        <button class="command-btn" onclick="sendCommand('DM:SCAN:INIT')">BLE 초기화 (INIT)</button>
+                        <button class="command-btn" onclick="sendCommand('DM:SCAN:START')">스캔시작 (START)</button>
+                        <button class="command-btn" onclick="sendCommand('DM:SCAN:STOP')">스캔정지 (STOP)</button>
+                        <button class="command-btn" onclick="sendCommand('DM:SETUP:DONE')">BLE 연결설정 완료 (DONE)</button>
+                        <button class="command-btn recon-btn" onclick="sendCommand('DM:SCAN:RECON')">BLE 재연결 (RECON)</button>
+                    </div>
+
+                    <div style="margin-top: 8px;">
+                        <label style="font-weight: 600; color: var(--text-primary); font-size: 10px;">스캔 결과</label>
+                        <div id="scanResults" class="scan-results-box">
+                            <span style="color: #aaa;">스캔 결과 없음</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group" style="margin-top: 8px;">
+                        <label>장치 연결</label>
+                        <div class="connect-row">
+                            <input type="text" id="connMac" placeholder="MAC 주소">
+                            <select id="connLocation">
+                                <option value="LFOOT">왼발</option>
+                                <option value="RFOOT">오른발</option>
+                                <option value="LARM">왼팔</option>
+                                <option value="RARM">오른팔</option>
+                                <option value="LTHIGH">왼허벅지</option>
+                                <option value="RTHIGH">오른허벅지</option>
+                                <option value="BACK">등</option>
+                            </select>
+                            <button class="command-btn" onclick="sendConnectDevice()">연결</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Command -->
+                <div class="command-section">
+                    <h3>사용자 명령</h3>
+                    <div class="connect-row">
+                        <input type="text" id="customCmd" placeholder="예: DM:STATUS:REQ" style="flex: 1;">
+                        <button class="btn btn-primary" onclick="sendCustomCommand()">전송</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Manual Mode -->
+            <div class="panel" id="panel-man" data-tab="man">
+                <h2>수동 모드</h2>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div class="input-group">
+                        <label>주파수 (Hz)</label>
+                        <input type="number" id="manFreq" min="10" max="100" value="10" step="10">
+                    </div>
+                    <div class="input-group">
+                        <label>강도</label>
+                        <input type="number" id="manIntensity" min="1" max="5" value="3" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label>시간 (분)</label>
+                        <input type="number" id="manDuration" min="1" max="20" value="1">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>위치 선택</label>
+                    <div class="checkbox-grid">
+                        <label class="checkbox-label"><input type="checkbox" value="1" checked>가슴</label>
+                        <label class="checkbox-label"><input type="checkbox" value="4">왼팔</label>
+                        <label class="checkbox-label"><input type="checkbox" value="5">오른팔</label>
+                        <label class="checkbox-label"><input type="checkbox" value="6">왼허벅지</label>
+                        <label class="checkbox-label"><input type="checkbox" value="7">오른허벅지</label>
+                    </div>
+                </div>
+
+                <div class="mode-controls" style="margin-top: 8px;">
+                    <button class="btn btn-primary" onclick="sendManualStart()">시작 (MAN:START)</button>
+                    <button class="btn btn-danger" onclick="sendCommand('MAN:STOP')">정지 (MAN:STOP)</button>
+                </div>
+            </div>
+
+            <!-- Section 3: Daily Support Mode -->
+            <div class="panel panel-ds" id="panel-ds" data-tab="ds">
+                <h2>일상 지원 모드</h2>
+                <div class="mode-controls">
+                    <button class="btn btn-success" onclick="sendCommand('DS:START')">시작 (DS:START)</button>
+                    <button class="btn btn-danger" onclick="sendCommand('DS:STOP')">정지 (DS:STOP)</button>
+                </div>
+            </div>
+
+            <!-- Section 4: Evaluation Mode -->
+            <div class="panel panel-eval" id="panel-eval" data-tab="eval">
+                <h2>평가 모드</h2>
+                <div class="mode-controls">
+                    <button class="btn btn-warning" onclick="sendCommand('EVAL:START')">시작 (EVAL:START)</button>
+                    <button class="btn btn-danger" onclick="sendCommand('EVAL:STOP')">정지 (EVAL:STOP)</button>
+                </div>
+
+                <!-- EVAL Data -->
+                <div class="eval-data">
+                    <h3 style="color: var(--warning-dark); margin-top: 12px; font-size: 11px;">평가 데이터 모니터</h3>
+                    <div class="quick-actions">
+                        <button class="btn btn-warning" onclick="clearEvalData()">초기화</button>
+                        <button class="btn btn-warning" onclick="downloadEvalData()">CSV 저장</button>
+                    </div>
+                    <table class="eval-table" id="evalTable">
+                        <thead>
+                            <tr>
+                                <th>평가일</th>
+                                <th>왼발 한걸음길이(cm)</th> <th>오른발 한걸음길이(cm)</th> <th>비대칭(%)</th>
+                                <th>왼발 한걸음속도(cm/s)</th> <th>오른발 한걸음속도(cm/s)</th> <th>비대칭(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evalTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Section 5: Status & Logs (Always visible) -->
+            <div class="panel panel-full" id="panel-logs">
+                <h2>상태 및 로그</h2>
+
+                <!-- Device Status -->
+                <div class="device-status">
+                    <h3>장치 상태</h3>
+                    <div id="deviceStatus" class="status-info">상태 정보 없음</div>
+                </div>
+
+                <!-- Communication Logs -->
+                <div class="log-container">
+                    <div class="log-box">
+                        <h4>송신</h4>
+                        <textarea id="sentLog" readonly></textarea>
+                    </div>
+                    <div class="log-box">
+                        <h4>수신</h4>
+                        <textarea id="receivedLog" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="vibecue_v2.js"></script>
+    <script>
+        // Layout toggle functionality
+        let isTabMode = false;
+
+        function toggleLayout() {
+            isTabMode = !isTabMode;
+            const toggle = document.getElementById('layoutToggle');
+            const tabNav = document.getElementById('tabNav');
+            const mainContent = document.getElementById('mainContent');
+
+            if (isTabMode) {
+                toggle.classList.add('tab-mode');
+                tabNav.classList.add('visible');
+                mainContent.classList.add('tab-mode');
+                switchTab('dm');
+            } else {
+                toggle.classList.remove('tab-mode');
+                tabNav.classList.remove('visible');
+                mainContent.classList.remove('tab-mode');
+                document.querySelectorAll('.panel:not(.panel-full)').forEach(panel => {
+                    panel.classList.remove('active-tab');
+                });
+            }
+            localStorage.setItem('vibecue_layout', isTabMode ? 'tab' : 'grid');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'active-ds', 'active-eval');
+                if (btn.dataset.tab === tabId) {
+                    if (tabId === 'ds') btn.classList.add('active', 'active-ds');
+                    else if (tabId === 'eval') btn.classList.add('active', 'active-eval');
+                    else btn.classList.add('active');
+                }
+            });
+            document.querySelectorAll('.panel:not(.panel-full)').forEach(panel => {
+                panel.classList.remove('active-tab');
+                if (panel.dataset.tab === tabId) panel.classList.add('active-tab');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedLayout = localStorage.getItem('vibecue_layout');
+            if (savedLayout === 'tab') toggleLayout();
+        });
+    </script>
+</body>
+</html>
