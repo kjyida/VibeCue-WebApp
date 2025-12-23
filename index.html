@@ -1009,11 +1009,12 @@
                         <button class="btn btn-warning" onclick="downloadEvalData()">CSV 저장</button>
                     </div>
                     <table class="eval-table" id="evalTable">
-                        <thead>
+                        <thead id="evalTableHead">
                             <tr>
-                                <th>평가일</th>
-                                <th>왼발 한걸음길이(cm)</th> <th>오른발 한걸음길이(cm)</th> <th>비대칭(%)</th>
-                                <th>왼발 한걸음속도(cm/s)</th> <th>오른발 한걸음속도(cm/s)</th> <th>비대칭(%)</th>
+                                <th>Time</th>
+                                <th>L Avg Dist(cm)</th><th>R Avg Dist(cm)</th>
+                                <th>L Avg Spd(cm/s)</th><th>R Avg Spd(cm/s)</th>
+                                <th>Asym(%)</th>
                             </tr>
                         </thead>
                         <tbody id="evalTableBody"></tbody>
