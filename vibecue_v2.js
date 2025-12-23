@@ -545,6 +545,34 @@ function clearEvalData() {
 }
 
 /**
+ * Send Position Filter (posf_sl) command to sensors
+ * Format: EVAL:SEN:<posf_sl{value}>
+ * Valid range: 0.05 ~ 0.3
+ */
+function sendPosfSlCommand() {
+    const valueInput = document.getElementById('posfSlValue');
+    if (!valueInput) {
+        alert('Position Filter 입력 필드를 찾을 수 없습니다');
+        return;
+    }
+
+    const value = parseFloat(valueInput.value);
+
+    // Validate range
+    if (isNaN(value) || value < 0.05 || value > 0.3) {
+        alert('Position Filter 값은 0.05 ~ 0.3 범위여야 합니다');
+        return;
+    }
+
+    // Format value to avoid floating point issues (e.g., 0.10 -> "0.1")
+    const formattedValue = value.toString();
+
+    // Build command: EVAL:SEN:<posf_sl{value}>
+    const cmd = `EVAL:SEN:<posf_sl${formattedValue}>`;
+    sendCommand(cmd);
+}
+
+/**
  * Download EVAL data as CSV
  */
 function downloadEvalData() {
