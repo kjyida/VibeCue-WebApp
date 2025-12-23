@@ -1001,6 +1001,19 @@
                     <button class="btn btn-danger" onclick="sendCommand('EVAL:STOP')">정지 (EVAL:STOP)</button>
                 </div>
 
+                <!-- Sensor Settings -->
+                <div style="margin-top: 12px; padding: 8px; background: #fff8e1; border-radius: 4px;">
+                    <h3 style="color: var(--warning-dark); margin-bottom: 8px; font-size: 11px;">센서 설정</h3>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <div class="input-group" style="flex: 0 0 120px;">
+                            <label>Position Filter</label>
+                            <input type="number" id="posfSlValue" min="0.05" max="0.3" value="0.2" step="0.01">
+                        </div>
+                        <button class="btn btn-warning" onclick="sendPosfSlCommand()">전송 (posf_sl)</button>
+                    </div>
+                    <div style="font-size: 9px; color: #888; margin-top: 4px;">범위: 0.05 ~ 0.3 (기본값: 0.2)</div>
+                </div>
+
                 <!-- EVAL Data -->
                 <div class="eval-data">
                     <h3 style="color: var(--warning-dark); margin-top: 12px; font-size: 11px;">평가 데이터 모니터</h3>
