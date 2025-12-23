@@ -445,7 +445,7 @@ function updateDeviceStatus(message) {
 
 /**
  * Handle EVAL:STOP:STOP_OK response with average data
- * Type 1,2,4 (Foot): #EVAL:STOP:STOP_OK:{L_avg_dist},{R_avg_dist},{L_avg_speed},{R_avg_speed},{asymmetry} (5 values)
+ * Type 1,2,4 (Foot): #EVAL:STOP:STOP_OK:{L_dist},{L_speed},{R_dist},{R_speed},{asymmetry} (5 values)
  * Type 3 (Back): #EVAL:STOP:STOP_OK:{L_avg_tilt},{R_avg_tilt},{asymmetry} (3 values)
  */
 function handleEvalStopData(message) {
@@ -460,13 +460,13 @@ function handleEvalStopData(message) {
     const timestamp = new Date().toLocaleTimeString();
 
     if (parts.length === 5) {
-        // Type 1, 2, 4: Foot sensors average (L_dist, R_dist, L_speed, R_speed, asymmetry)
+        // Type 1, 2, 4: Foot sensors average (L_dist, L_speed, R_dist, R_speed, asymmetry)
         evalDataRows.push({
             type: 'foot',
             time: timestamp,
             lDist: parts[0],
-            rDist: parts[1],
-            lSpeed: parts[2],
+            lSpeed: parts[1],
+            rDist: parts[2],
             rSpeed: parts[3],
             asymmetry: parts[4]
         });
@@ -507,14 +507,14 @@ function updateEvalTable() {
     // Check data type and update header (shows average data from EVAL:STOP)
     const dataType = displayRows[0].type;
     if (dataType === 'foot') {
-        thead.innerHTML = '<tr><th>Time</th><th>L Avg Dist(cm)</th><th>R Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th><th>R Avg Spd(cm/s)</th><th>Asym(%)</th></tr>';
+        thead.innerHTML = '<tr><th>Time</th><th>L Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th><th>R Avg Dist(cm)</th><th>R Avg Spd(cm/s)</th><th>Asym(%)</th></tr>';
         displayRows.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${row.time}</td>
                 <td>${row.lDist}</td>
-                <td>${row.rDist}</td>
                 <td>${row.lSpeed}</td>
+                <td>${row.rDist}</td>
                 <td>${row.rSpeed}</td>
                 <td>${row.asymmetry}</td>
             `;
@@ -558,9 +558,9 @@ function downloadEvalData() {
     const dataType = evalDataRows[0].type;
 
     if (dataType === 'foot') {
-        csv = 'Time,L_Avg_Dist(cm),R_Avg_Dist(cm),L_Avg_Speed(cm/s),R_Avg_Speed(cm/s),Asymmetry(%)\n';
+        csv = 'Time,L_Avg_Dist(cm),L_Avg_Speed(cm/s),R_Avg_Dist(cm),R_Avg_Speed(cm/s),Asymmetry(%)\n';
         evalDataRows.forEach(row => {
-            csv += `${row.time},${row.lDist},${row.rDist},${row.lSpeed},${row.rSpeed},${row.asymmetry}\n`;
+            csv += `${row.time},${row.lDist},${row.lSpeed},${row.rDist},${row.rSpeed},${row.asymmetry}\n`;
         });
     } else if (dataType === 'back') {
         csv = 'Time,L_Avg_Tilt(deg),R_Avg_Tilt(deg),Asymmetry(%)\n';
