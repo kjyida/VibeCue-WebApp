@@ -163,10 +163,14 @@ function handleNotification(event) {
     // Update device status
     updateDeviceStatus(payload);
 
-    // Handle EVAL data (format: #EVAL:DATA:...)
-    if (payload.startsWith('#EVAL:DATA:')) {
-        handleEvalData(payload);
+    // Handle EVAL:STOP:STOP_OK response with average data
+    // Format: #EVAL:STOP:STOP_OK:{L_avg},{R_avg},{L_spd},{R_spd},{asym} (Type 1,2,4)
+    //         #EVAL:STOP:STOP_OK:{L_tilt},{R_tilt},{asym} (Type 3)
+    if (payload.startsWith('#EVAL:STOP:STOP_OK:')) {
+        handleEvalStopData(payload);
     }
+
+    // Note: #EVAL:DATA:... is only shown in log, not added to table
 
     // Handle MAN timeout (format: #MAN:TIMEOUT)
     if (payload.startsWith('#MAN:TIMEOUT')) {
@@ -420,7 +424,7 @@ function updateDeviceStatus(message) {
     // Handle slot full
     else if (message.includes('SLOT_FULL:')) {
         const parts = message.split(':');
-        const maxSlots = parts.length > 2 ? parts[2] : '4';
+        const maxSlots = parts.length > 2 ? parts[2] : '8';
         statusHTML = `<div style="color: #e74c3c;"><strong>✗ Slot Full:</strong> Maximum ${maxSlots} devices allowed</div>`;
     }
     // Handle error response
@@ -440,31 +444,49 @@ function updateDeviceStatus(message) {
 }
 
 /**
- * Handle EVAL data
- * Format: $EVAL:DATA:<dist_cm>,<speed_cms> (integers in cm and cm/s)
+ * Handle EVAL:STOP:STOP_OK response with average data
+ * Type 1,2,4 (Foot): #EVAL:STOP:STOP_OK:{L_avg_dist},{R_avg_dist},{L_avg_speed},{R_avg_speed},{asymmetry} (5 values)
+ * Type 3 (Back): #EVAL:STOP:STOP_OK:{L_avg_tilt},{R_avg_tilt},{asymmetry} (3 values)
  */
-function handleEvalData(message) {
-    // Parse: $EVAL:DATA:75,125 (cm, cm/s)
-    const match = message.match(/\$EVAL:DATA:(\d+),(\d+)/);
-    if (!match) {
-        console.warn('Failed to parse EVAL data:', message);
+function handleEvalStopData(message) {
+    // Extract data part after #EVAL:STOP:STOP_OK:
+    const dataMatch = message.match(/#EVAL:STOP:STOP_OK:(.+)/);
+    if (!dataMatch) {
+        console.warn('Failed to parse EVAL STOP data:', message);
         return;
     }
 
-    // Convert cm → m, cm/s → m/s for display
-    const distance_m = parseInt(match[1]) / 100;
-    const speed_ms = parseInt(match[2]) / 100;
+    const parts = dataMatch[1].split(',').map(s => parseInt(s.trim()));
     const timestamp = new Date().toLocaleTimeString();
 
-    // Add to data array
-    evalDataRows.push({
-        time: timestamp,
-        distance: distance_m.toFixed(2),
-        speed: speed_ms.toFixed(2)
-    });
+    if (parts.length === 5) {
+        // Type 1, 2, 4: Foot sensors average (L_dist, R_dist, L_speed, R_speed, asymmetry)
+        evalDataRows.push({
+            type: 'foot',
+            time: timestamp,
+            lDist: parts[0],
+            rDist: parts[1],
+            lSpeed: parts[2],
+            rSpeed: parts[3],
+            asymmetry: parts[4]
+        });
+    } else if (parts.length === 3) {
+        // Type 3: Back sensor average (L_tilt, R_tilt, asymmetry)
+        evalDataRows.push({
+            type: 'back',
+            time: timestamp,
+            lTilt: parts[0],
+            rTilt: parts[1],
+            asymmetry: parts[2]
+        });
+    } else {
+        console.warn('Unknown EVAL STOP data format:', message);
+        return;
+    }
 
     // Update table
     updateEvalTable();
+    logReceived('📊 EVAL average data added to table');
 }
 
 /**
@@ -472,21 +494,45 @@ function handleEvalData(message) {
  */
 function updateEvalTable() {
     const tbody = document.getElementById('evalTableBody');
+    const thead = document.getElementById('evalTableHead');
 
     // Clear existing rows
     tbody.innerHTML = '';
 
     // Add data rows (show last 20)
     const displayRows = evalDataRows.slice(-20);
-    displayRows.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${row.time}</td>
-            <td>${row.distance}</td>
-            <td>${row.speed}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+
+    if (displayRows.length === 0) return;
+
+    // Check data type and update header (shows average data from EVAL:STOP)
+    const dataType = displayRows[0].type;
+    if (dataType === 'foot') {
+        thead.innerHTML = '<tr><th>Time</th><th>L Avg Dist(cm)</th><th>R Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th><th>R Avg Spd(cm/s)</th><th>Asym(%)</th></tr>';
+        displayRows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.time}</td>
+                <td>${row.lDist}</td>
+                <td>${row.rDist}</td>
+                <td>${row.lSpeed}</td>
+                <td>${row.rSpeed}</td>
+                <td>${row.asymmetry}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } else if (dataType === 'back') {
+        thead.innerHTML = '<tr><th>Time</th><th>L Avg Tilt(°)</th><th>R Avg Tilt(°)</th><th>Asym(%)</th></tr>';
+        displayRows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.time}</td>
+                <td>${row.lTilt}</td>
+                <td>${row.rTilt}</td>
+                <td>${row.asymmetry}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
 }
 
 /**
@@ -507,11 +553,21 @@ function downloadEvalData() {
         return;
     }
 
-    // Build CSV
-    let csv = 'Time,Distance (m),Speed (m/s)\n';
-    evalDataRows.forEach(row => {
-        csv += `${row.time},${row.distance},${row.speed}\n`;
-    });
+    // Build CSV based on data type (average data from EVAL:STOP)
+    let csv = '';
+    const dataType = evalDataRows[0].type;
+
+    if (dataType === 'foot') {
+        csv = 'Time,L_Avg_Dist(cm),R_Avg_Dist(cm),L_Avg_Speed(cm/s),R_Avg_Speed(cm/s),Asymmetry(%)\n';
+        evalDataRows.forEach(row => {
+            csv += `${row.time},${row.lDist},${row.rDist},${row.lSpeed},${row.rSpeed},${row.asymmetry}\n`;
+        });
+    } else if (dataType === 'back') {
+        csv = 'Time,L_Avg_Tilt(deg),R_Avg_Tilt(deg),Asymmetry(%)\n';
+        evalDataRows.forEach(row => {
+            csv += `${row.time},${row.lTilt},${row.rTilt},${row.asymmetry}\n`;
+        });
+    }
 
     // Download
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -520,7 +576,7 @@ function downloadEvalData() {
     a.href = url;
 
     const now = new Date();
-    const filename = `eval_data_${now.toISOString().slice(0, 10)}_${now.toTimeString().slice(0, 8).replace(/:/g, '-')}.csv`;
+    const filename = `eval_data_${dataType}_${now.toISOString().slice(0, 10)}_${now.toTimeString().slice(0, 8).replace(/:/g, '-')}.csv`;
     a.download = filename;
 
     a.click();
