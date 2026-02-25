@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeCue Protocol Tester v2.0</title>
+    <title>VibeCue Protocol Tester v3.0</title>
     <style>
         :root {
             /* Refined Color Palette - Balanced & Sophisticated */
@@ -36,12 +36,19 @@
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(145deg, #e8eaf0 0%, #f0f2f5 50%, #eef0f2 100%);
             min-height: 100vh;
-            padding: 8px;
-            font-size: 12px;
+            padding: 4px;
+            font-size: 14px;
+            -webkit-text-size-adjust: 100%;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
 
         .container {
@@ -53,87 +60,708 @@
             overflow: hidden;
         }
 
+        /* Header Bar - fixed top bar */
         .header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
-            padding: 12px 15px;
-            text-align: center;
-            position: relative;
+            padding: 10px 12px;
+            padding-top: calc(10px + env(safe-area-inset-top, 0px));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(60, 70, 90, 0.15);
+        }
+        .header-spacer {
+            height: calc(50px + env(safe-area-inset-top, 0px));
         }
 
-        .header h1 {
-            font-size: 18px;
-            margin-bottom: 2px;
-            font-weight: 600;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 10px;
-        }
-
-        /* Layout Toggle Button */
-        .layout-toggle {
-            position: absolute;
-            top: 8px;
-            right: 10px;
+        .header-ble {
             display: flex;
             align-items: center;
             gap: 6px;
-            background: rgba(255, 255, 255, 0.3);
-            padding: 4px 10px;
-            border-radius: 15px;
             cursor: pointer;
-            transition: all 0.3s;
+            touch-action: manipulation;
+            padding: 7px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .layout-toggle:hover {
+        .header-ble:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .header-ble.dm-open {
             background: rgba(255, 255, 255, 0.45);
         }
 
-        .layout-toggle span {
+        .ble-icon {
+            width: 18px;
+            height: 18px;
+            fill: rgba(255, 255, 255, 0.45);
+            flex-shrink: 0;
+            transition: fill 0.3s;
+        }
+
+        .ble-icon.connected {
+            fill: #a0ffb0;
+        }
+
+        .ble-icon.connecting {
+            fill: #ffe08a;
+            animation: ble-pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes ble-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .header-ble span {
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .header-title {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .header-layout {
+            cursor: pointer;
+            touch-action: manipulation;
+            padding: 7px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .header-layout:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* DM Drawer (collapsible device management) */
+        .dm-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .dm-overlay.open {
+            display: block;
+            opacity: 1;
+        }
+
+        .dm-drawer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: calc(100% - 32px);
+            max-width: 480px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+            z-index: 160;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .dm-drawer.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .dm-drawer > .panel {
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            padding-bottom: 0;
+        }
+
+        .dm-fold-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            background: var(--bg-main);
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            border-top: 1px solid var(--border);
+            border-radius: 0 0 16px 16px;
+        }
+
+        .dm-fold-btn:active {
+            background: var(--border);
+        }
+
+        /* Setup confirm dialog */
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 250;
+            justify-content: center;
+            align-items: center;
+        }
+        .confirm-overlay.open {
+            display: flex;
+        }
+        .confirm-dialog {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 24px 20px 20px;
+            width: calc(100% - 48px);
+            max-width: 340px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+        }
+        .confirm-body {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .confirm-icon {
+            flex-shrink: 0;
+            font-size: 40px;
+            line-height: 1;
+        }
+        .confirm-body p {
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text);
+            text-align: left;
+            margin: 0;
+        }
+        .confirm-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .confirm-actions .btn-cancel {
+            flex: 2;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-main);
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .confirm-actions .btn-cancel:active {
+            background: var(--border);
+        }
+        .confirm-actions .btn-proceed {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--danger);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .confirm-actions .btn-proceed:active {
+            background: var(--danger-dark);
+        }
+
+        /* Body map popup */
+        .bodymap-popup {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 20px 16px 16px;
+            width: 92%;
+            max-width: 360px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+        }
+        .bodymap-popup h3 {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .bodymap-mac {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .bodymap-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .bodymap-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 10 / 16;
+            max-height: 380px;
+            margin: 0 auto;
+        }
+        .body-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .body-indicator {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            padding: 5px 8px;
+            border-radius: 16px;
+            background: white;
+            border: 2px solid var(--border);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            width: 52px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+            touch-action: manipulation;
+            user-select: none;
+            transition: all 0.15s;
+            z-index: 2;
+        }
+        .body-indicator:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+        .body-indicator.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary-dark);
+            box-shadow: 0 2px 8px rgba(102, 120, 184, 0.4);
+        }
+        .bodymap-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .bodymap-actions .btn-cancel {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .bodymap-actions .btn-register {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .bodymap-actions .btn-register:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: default;
+        }
+        .bodymap-actions .btn-register:not(:disabled):active {
+            background: var(--primary-dark);
+        }
+
+        .body-indicator.registered {
+            background: var(--success-light);
+            color: var(--success-dark);
+            border-color: var(--success);
+        }
+
+        /* Manual mode bodymap */
+        .man-bodymap-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 10 / 16;
+            max-height: 320px;
+            margin: 0 auto;
+        }
+        .man-bodymap-container .body-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .man-loc-btn.hidden {
+            display: none;
+        }
+
+        /* Vibration mode selection */
+        .vib-mode-row {
+            display: flex;
+            gap: 10px;
+        }
+        .vib-mode-card {
+            flex: 1;
+            padding: 12px 10px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+            user-select: none;
+            position: relative;
+        }
+        .vib-mode-card.selected {
+            border-color: var(--primary);
+            background: rgba(102, 126, 234, 0.06);
+        }
+        .vib-mode-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .vib-mode-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .vib-mode-card.selected .vib-mode-name {
+            color: var(--primary);
+        }
+        .vib-mode-params {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        .vib-mode-param-btn {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px;
+            background: var(--bg-main);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: background 0.15s;
+            border: none;
+        }
+        .vib-mode-param-btn:active {
+            background: var(--border);
+        }
+        .vib-mode-card.selected .vib-mode-param-btn {
+            color: var(--primary);
+            background: rgba(102, 126, 234, 0.12);
+        }
+        .vib-mode-param-unit {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+
+        /* Vibration slider */
+        .vib-slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+            margin: 8px 0 4px;
+        }
+        .vib-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .vib-slider-group {
+            margin-bottom: 16px;
+        }
+        .vib-slider-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .vib-slider-range {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .vib-slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 2px;
+            margin-top: 2px;
+        }
+        .vib-slider-ticks span {
             font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            width: 0;
+            overflow: visible;
+            white-space: nowrap;
+        }
+        .vib-slider-ticks span:first-child { text-align: left; }
+        .vib-slider-ticks span:last-child { text-align: right; }
+
+        /* Intensity slider gradient */
+        .intensity-slider::-webkit-slider-thumb {
+            background: var(--intensity-color, #66b2ff);
+        }
+        .intensity-slider {
+            background: linear-gradient(to right, #a8d8ff, #66b2ff, #f5c842, #f0883a, #e04545) !important;
+        }
+
+        /* Daily Support Timer */
+        .ds-timer-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+        .ds-timer-ring {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .ds-timer-bg {
+            fill: none;
+            stroke: var(--success-light);
+            stroke-width: 8;
+        }
+        .ds-timer-progress {
+            fill: none;
+            stroke: var(--success);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 339.292;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear;
+        }
+        .ds-timer-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .ds-timer-icon {
+            font-size: 34px;
+            line-height: 1;
+            animation: ds-walk 0.7s ease-in-out infinite;
+        }
+        @keyframes ds-walk {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-4px) rotate(-5deg); }
+            75% { transform: translateY(-4px) rotate(5deg); }
+        }
+        .ds-timer-time {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--success-dark);
+            font-variant-numeric: tabular-nums;
+            margin-top: 2px;
+        }
+        .ds-timer-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+        .ds-timer-container.active {
+            animation: ds-timer-glow 2s ease-in-out infinite;
+        }
+        @keyframes ds-timer-glow {
+            0%, 100% { filter: drop-shadow(0 0 4px rgba(90, 158, 111, 0.2)); }
+            50% { filter: drop-shadow(0 0 20px rgba(90, 158, 111, 0.6)) drop-shadow(0 0 40px rgba(90, 158, 111, 0.25)); }
+        }
+
+        /* Eval countdown & running state */
+        .eval-countdown-number {
+            font-size: 72px;
+            font-weight: 800;
+            color: var(--warning-dark);
+            line-height: 1;
+            animation: eval-count-pop 1s ease-out;
+            text-shadow: 0 2px 12px rgba(212, 148, 74, 0.35);
+        }
+        @keyframes eval-count-pop {
+            0% { transform: scale(1.8); opacity: 0; }
+            30% { transform: scale(0.9); opacity: 1; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .eval-countdown-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .eval-running-timer {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--warning-dark);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 1px;
+        }
+        .eval-running-icon {
+            font-size: 36px;
+            line-height: 1;
+            animation: eval-walk 0.8s ease-in-out infinite;
+            display: inline-block;
+        }
+        @keyframes eval-walk {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-3px) rotate(-4deg); }
+            75% { transform: translateY(-3px) rotate(4deg); }
+        }
+
+        /* Popup action buttons */
+        .vib-popup-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .vib-popup-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            border: 1px solid var(--border);
+            background: white;
+            color: var(--text-primary);
+            transition: background 0.15s;
+        }
+        .vib-popup-btn:active {
+            background: var(--bg-main);
+        }
+        .vib-popup-btn.save {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .vib-popup-btn.save:active {
+            background: var(--primary-dark);
+        }
+
+        /* Reset waiting spinner */
+        .reset-waiting {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
             font-weight: 600;
         }
-
-        .toggle-switch {
-            width: 32px;
-            height: 18px;
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 9px;
-            position: relative;
-            transition: all 0.3s;
-        }
-
-        .toggle-switch::after {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background: white;
+        .reset-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
             border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: all 0.3s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .reset-waiting.timeout {
+            color: #e74c3c;
+        }
+        .reset-waiting.timeout .reset-spinner {
+            animation: none;
+            border-color: #e74c3c;
+            border-top-color: #e74c3c;
         }
 
-        .layout-toggle.tab-mode .toggle-switch::after {
-            left: 16px;
+        /* Setup section (hidden by default) */
+        .setup-section {
+            display: none;
+        }
+        .setup-section.open {
+            display: block;
+            margin-left: 12px;
+            padding-left: 12px;
+            border-left: 3px solid var(--primary-light);
+        }
+        .setup-section h4 {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
         }
 
-        .layout-toggle.tab-mode .toggle-switch {
-            background: rgba(255, 255, 255, 0.55);
-        }
-
-        /* Tab Navigation */
+        /* Tab Navigation - fixed bottom bar */
         .tab-nav {
             display: none;
-            background: var(--bg-main);
-            padding: 8px 10px;
-            gap: 6px;
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
+            background: var(--bg-card);
+            padding: 8px 12px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+            gap: 8px;
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -2px 10px rgba(60, 70, 90, 0.1);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
         }
 
         .tab-nav.visible {
@@ -141,40 +769,56 @@
         }
 
         .tab-btn {
-            padding: 6px 12px;
+            padding: 6px 4px;
             border: none;
-            background: white;
-            color: var(--text-secondary);
+            background: transparent;
+            color: var(--text-muted);
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 11px;
-            border: 1px solid var(--border);
+            font-size: 10px;
+            touch-action: manipulation;
+            flex: 1;
+            text-align: center;
+            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .tab-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .tab-text {
+            font-size: 10px;
         }
 
         .tab-btn:hover {
-            border-color: var(--primary);
             color: var(--primary);
-            background: var(--primary-light);
         }
 
         .tab-btn.active {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-btn.active .tab-text {
+            font-weight: 700;
         }
 
         .tab-btn.active-ds {
-            background: var(--success);
-            border-color: var(--success);
-            color: white;
+            color: var(--success);
         }
 
         .tab-btn.active-eval {
-            background: var(--warning);
-            border-color: var(--warning);
-            color: white;
+            color: var(--warning);
+        }
+
+        .tab-btn.active-eval-result {
+            color: #8e44ad;
         }
 
         .main-content {
@@ -183,11 +827,13 @@
             gap: 10px;
             padding: 10px;
             background: var(--bg-main);
+            overflow: hidden;
         }
 
         /* Tab Mode Styles */
         .main-content.tab-mode {
             grid-template-columns: 1fr;
+            padding-bottom: 64px;
         }
 
         .main-content.tab-mode .panel:not(.panel-full) {
@@ -208,6 +854,8 @@
             padding: 10px;
             box-shadow: 0 1px 4px rgba(60, 70, 90, 0.08);
             border: 1px solid var(--border-light);
+            overflow: hidden;
+            min-width: 0;
         }
 
         .panel-full {
@@ -216,10 +864,10 @@
 
         .panel h2 {
             color: var(--primary-dark);
-            margin-bottom: 10px;
-            font-size: 14px;
+            margin-bottom: 12px;
+            font-size: 17px;
             border-bottom: 2px solid var(--primary-light);
-            padding-bottom: 6px;
+            padding-bottom: 8px;
         }
 
         .panel-ds h2 {
@@ -232,41 +880,109 @@
             border-bottom-color: var(--warning-light);
         }
 
-        /* Bluetooth Connection */
-        .bluetooth-section {
+        .panel-eval-result h2 {
+            color: #8e44ad;
+            border-bottom-color: #e8d5f5;
+        }
+        .panel-eval-result .btn-eval-result {
+            background: #8e44ad;
+            color: white;
+        }
+        .panel-eval-result .btn-eval-result:hover:not(:disabled) {
+            background: #7d3c98;
+            box-shadow: 0 2px 8px rgba(142, 68, 173, 0.35);
+        }
+        .panel-eval-result .eval-table th {
+            background: #8e44ad;
+        }
+
+        .ble-guide {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
             margin-bottom: 10px;
         }
 
-        .connection-bar {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            margin-bottom: 8px;
+        .ble-toggle-btn {
+            display: block;
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            margin-bottom: 10px;
         }
 
-        .connection-bar input {
-            flex: 1;
-            padding: 6px 8px;
+        .ble-toggle-btn.connected {
+            background: var(--danger);
+        }
+
+        .ble-toggle-btn.connected:hover:not(:disabled) {
+            background: var(--danger-dark);
+        }
+
+        .status-toggle {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: var(--bg-main);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 11px;
-            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            touch-action: manipulation;
+            user-select: none;
+        }
+        .status-toggle:active {
+            background: var(--border-light);
         }
 
-        .connection-bar input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary-light);
+        .device-status-info {
+            margin-top: 10px;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .status-row:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .status-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.6;
+            text-align: center;
+            white-space: pre-line;
+            background: white;
+            border-radius: 6px;
         }
 
         .btn {
-            padding: 6px 12px;
+            padding: 12px 16px;
             border: none;
-            border-radius: 6px;
-            font-size: 10px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            touch-action: manipulation;
         }
 
         .btn-primary {
@@ -316,10 +1032,10 @@
 
         .status-badge {
             display: inline-block;
-            padding: 4px 10px;
+            padding: 8px 14px;
             border-radius: 12px;
             font-weight: 600;
-            font-size: 10px;
+            font-size: 13px;
         }
 
         .status-disconnected {
@@ -343,27 +1059,30 @@
 
         .command-section h3 {
             color: var(--text-primary);
-            font-size: 11px;
-            margin-bottom: 6px;
+            font-size: 14px;
+            margin-bottom: 8px;
             font-weight: 600;
         }
 
         .command-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-            gap: 5px;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
         }
 
         .command-btn {
-            padding: 8px 4px;
+            padding: 12px 6px;
             border: 1px solid var(--border);
             background: white;
             color: var(--primary);
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 10px;
+            font-size: 12px;
+            touch-action: manipulation;
+            word-break: keep-all;
+            overflow-wrap: break-word;
         }
 
         .command-btn:hover {
@@ -374,7 +1093,8 @@
         }
 
         .command-btn:active {
-            transform: scale(0.98);
+            transform: scale(0.96);
+            opacity: 0.85;
         }
 
         /* Input Groups */
@@ -384,19 +1104,19 @@
 
         .input-group label {
             display: block;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
             color: var(--text-primary);
             font-weight: 600;
-            font-size: 10px;
+            font-size: 13px;
         }
 
         .input-group input,
         .input-group select {
             width: 100%;
-            padding: 5px 8px;
+            padding: 10px 12px;
             border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 11px;
+            border-radius: 8px;
+            font-size: 16px;
             background: white;
         }
 
@@ -407,24 +1127,110 @@
             box-shadow: 0 0 0 2px var(--primary-light);
         }
 
+        /* Custom Dropdown */
+        .custom-select {
+            position: relative;
+            width: 100%;
+        }
+        .custom-select-trigger {
+            width: 100%;
+            padding: 10px 32px 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            display: block;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .custom-select-trigger .trigger-name {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .custom-select-trigger .trigger-desc {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-top: 1px;
+        }
+        .custom-select-trigger.placeholder {
+            color: #999;
+        }
+        .custom-select-trigger:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+        .custom-select-trigger::after {
+            content: '▼';
+            font-size: 10px;
+            color: #999;
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .custom-select-options {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 200;
+            overflow: hidden;
+        }
+        .custom-select.open .custom-select-options {
+            display: block;
+        }
+        .custom-select-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        .custom-select-option:last-child {
+            border-bottom: none;
+        }
+        .custom-select-option:active {
+            background: var(--primary-light);
+        }
+        .custom-select-option .opt-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .custom-select-option .opt-desc {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .custom-select-option.selected {
+            background: var(--primary-light);
+        }
+
         /* Radio Groups */
         .radio-group {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
         }
 
         .radio-group label {
             display: flex;
             align-items: center;
-            gap: 3px;
+            gap: 6px;
             cursor: pointer;
-            padding: 4px 8px;
+            padding: 10px 10px;
             border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 10px;
+            border-radius: 8px;
+            font-size: 13px;
             transition: all 0.2s;
             background: white;
+            touch-action: manipulation;
         }
 
         .radio-group label:hover {
@@ -433,8 +1239,8 @@
         }
 
         .radio-group input[type="radio"] {
-            width: 12px;
-            height: 12px;
+            width: 20px;
+            height: 20px;
             accent-color: var(--primary);
         }
 
@@ -446,21 +1252,22 @@
         /* Checkbox Groups */
         .checkbox-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 4px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
         }
 
         .checkbox-label {
             display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 5px 6px;
+            gap: 6px;
+            padding: 10px 10px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 10px;
+            font-size: 13px;
             background: white;
+            touch-action: manipulation;
         }
 
         .checkbox-label:hover {
@@ -469,8 +1276,8 @@
         }
 
         .checkbox-label input {
-            width: 12px;
-            height: 12px;
+            width: 20px;
+            height: 20px;
             accent-color: var(--primary);
         }
 
@@ -490,17 +1297,17 @@
         .log-box h4 {
             color: var(--text-primary);
             margin-bottom: 4px;
-            font-size: 10px;
+            font-size: 13px;
         }
 
         .log-box textarea {
             flex: 1;
-            min-height: 80px;
-            padding: 6px;
+            min-height: 100px;
+            padding: 8px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             font-family: 'Courier New', monospace;
-            font-size: 9px;
+            font-size: 11px;
             resize: vertical;
             background: var(--bg-main);
         }
@@ -522,13 +1329,13 @@
         .device-status h3 {
             color: var(--primary-dark);
             margin-bottom: 6px;
-            font-size: 12px;
+            font-size: 15px;
         }
 
         .status-info {
             color: var(--text-primary);
             line-height: 1.5;
-            font-size: 11px;
+            font-size: 13px;
         }
 
         /* EVAL Data Table */
@@ -547,12 +1354,12 @@
             background: white;
             border-radius: 8px;
             overflow: hidden;
-            font-size: 10px;
+            font-size: 12px;
         }
 
         .eval-table th,
         .eval-table td {
-            padding: 6px 8px;
+            padding: 8px 6px;
             text-align: center;
             border: 1px solid var(--border);
         }
@@ -561,7 +1368,7 @@
             background: var(--warning);
             color: white;
             font-weight: 600;
-            font-size: 10px;
+            font-size: 12px;
         }
 
         .eval-table tr:nth-child(even) {
@@ -577,8 +1384,8 @@
 
         .quick-actions button {
             flex: 1;
-            padding: 5px 8px;
-            font-size: 9px;
+            padding: 10px 12px;
+            font-size: 13px;
         }
 
         /* Mode Control Buttons */
@@ -590,21 +1397,21 @@
 
         .mode-controls button {
             flex: 1;
-            padding: 10px 12px;
-            font-size: 11px;
+            padding: 14px 16px;
+            font-size: 15px;
         }
 
         /* Scan Results */
         .scan-results-box {
             background: var(--bg-main);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px;
-            margin-top: 4px;
-            max-height: 60px;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 6px;
+            max-height: 120px;
             overflow-y: auto;
             font-family: monospace;
-            font-size: 9px;
+            font-size: 12px;
         }
 
         /* Connect Device Row */
@@ -618,19 +1425,19 @@
         .connect-row input {
             flex: 1;
             min-width: 100px;
-            padding: 5px 8px;
-            font-size: 10px;
+            padding: 10px 12px;
+            font-size: 16px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             background: white;
         }
 
         .connect-row select {
-            width: 80px;
-            padding: 5px;
+            width: 100px;
+            padding: 10px 8px;
             border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 10px;
+            border-radius: 8px;
+            font-size: 15px;
             background: white;
         }
 
@@ -638,8 +1445,19 @@
         .mode-desc {
             color: var(--text-secondary);
             margin-bottom: 10px;
-            font-size: 11px;
+            font-size: 13px;
             line-height: 1.4;
+        }
+
+        /* Touch feedback for buttons */
+        .btn:active:not(:disabled) {
+            transform: scale(0.96);
+            opacity: 0.85;
+        }
+
+        .tab-btn:active {
+            transform: scale(0.96);
+            opacity: 0.85;
         }
 
         /* RECON Button Special Style */
@@ -657,7 +1475,7 @@
         @media (min-width: 1200px) {
             body {
                 padding: 20px;
-                font-size: 14px;
+                font-size: 15px;
             }
 
             .container {
@@ -665,37 +1483,19 @@
             }
 
             .header {
-                padding: 20px;
+                padding: 14px 24px;
             }
 
-            .header h1 {
-                font-size: 28px;
+            .header-title {
+                font-size: 22px;
             }
 
-            .header p {
-                font-size: 12px;
+            .header-ble span {
+                font-size: 13px;
             }
 
-            .layout-toggle {
-                padding: 6px 14px;
-            }
-
-            .layout-toggle span {
-                font-size: 12px;
-            }
-
-            .toggle-switch {
-                width: 44px;
-                height: 22px;
-            }
-
-            .toggle-switch::after {
-                width: 18px;
-                height: 18px;
-            }
-
-            .layout-toggle.tab-mode .toggle-switch::after {
-                left: 24px;
+            .header-layout {
+                font-size: 13px;
             }
 
             .main-content {
@@ -709,87 +1509,96 @@
             }
 
             .panel h2 {
-                font-size: 18px;
+                font-size: 20px;
                 margin-bottom: 15px;
             }
 
             .command-section h3 {
-                font-size: 14px;
+                font-size: 15px;
                 margin-bottom: 10px;
             }
 
             .command-grid {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
                 gap: 10px;
             }
 
             .command-btn {
-                padding: 12px 8px;
-                font-size: 12px;
-                border-radius: 8px;
+                padding: 12px 10px;
+                font-size: 14px;
             }
 
             .btn {
-                padding: 10px 20px;
-                font-size: 12px;
-                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
             }
 
             .input-group label {
-                font-size: 12px;
+                font-size: 14px;
             }
 
             .input-group input,
             .input-group select {
-                padding: 8px 12px;
-                font-size: 13px;
-                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 15px;
+            }
+
+            .radio-group {
+                grid-template-columns: repeat(4, 1fr);
             }
 
             .radio-group label {
-                padding: 6px 12px;
-                font-size: 12px;
-                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 14px;
             }
 
             .checkbox-grid {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 8px;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 10px;
             }
 
             .checkbox-label {
-                padding: 8px 10px;
-                font-size: 12px;
-                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 14px;
             }
 
             .log-box textarea {
                 min-height: 150px;
-                font-size: 11px;
-                border-radius: 8px;
+                font-size: 12px;
             }
 
             .mode-controls button {
-                padding: 14px 16px;
-                font-size: 14px;
+                padding: 14px 20px;
+                font-size: 16px;
                 border-radius: 10px;
             }
 
             .scan-results-box {
-                max-height: 100px;
-                font-size: 11px;
-                border-radius: 8px;
+                max-height: 140px;
+                font-size: 13px;
             }
 
             .tab-btn {
-                padding: 10px 20px;
-                font-size: 13px;
+                padding: 8px 24px;
                 border-radius: 10px;
+                flex: none;
+            }
+
+            .tab-icon {
+                font-size: 22px;
+            }
+
+            .tab-text {
+                font-size: 12px;
             }
 
             .tab-nav {
                 padding: 12px 20px;
-                gap: 10px;
+                gap: 12px;
+                max-width: 1400px;
+                left: 50%;
+                transform: translateX(-50%);
+                border-radius: 16px 16px 0 0;
             }
         }
 
@@ -797,6 +1606,10 @@
         @media (max-width: 1199px) and (min-width: 769px) {
             .main-content {
                 grid-template-columns: 1fr 1fr;
+            }
+
+            .checkbox-grid {
+                grid-template-columns: repeat(5, 1fr);
             }
         }
 
@@ -813,23 +1626,10 @@
             .log-container {
                 grid-template-columns: 1fr 1fr;
             }
-
-            .checkbox-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-
-            .layout-toggle {
-                top: 6px;
-                right: 8px;
-            }
-
-            .tab-nav {
-                justify-content: center;
-            }
         }
 
         /* Very small screens */
-        @media (max-width: 400px) {
+        @media (max-width: 480px) {
             .checkbox-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -852,158 +1652,319 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>VibeCue GUI v2.0</h1>
-            <p>Motion Cue Solution</p>
-            <div class="layout-toggle" id="layoutToggle" onclick="toggleLayout()">
-                <span>그리드</span>
-                <div class="toggle-switch"></div>
-                <span>탭</span>
+            <div class="header-ble" id="bleIndicator" onclick="toggleDMPanel()">
+                <svg class="ble-icon" id="bleDot" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+                <span id="bleLabel">미연결</span>
+            </div>
+            <span class="header-title">VibeCue</span>
+            <div class="header-layout" id="layoutToggle" onclick="toggleLayout()">
+                <span id="layoutLabel">탭</span>
             </div>
         </div>
+        <div class="header-spacer"></div>
 
-        <!-- Tab Navigation (hidden by default) -->
-        <div class="tab-nav" id="tabNav">
-            <button class="tab-btn active" data-tab="dm" onclick="switchTab('dm')">장치 관리</button>
-            <button class="tab-btn" data-tab="man" onclick="switchTab('man')">수동 모드</button>
-            <button class="tab-btn" data-tab="ds" onclick="switchTab('ds')">일상 지원</button>
-            <button class="tab-btn" data-tab="eval" onclick="switchTab('eval')">평가 모드</button>
-        </div>
-
-        <div class="main-content" id="mainContent">
-            <!-- Section 1: Device Management and Connection -->
-            <div class="panel active-tab" id="panel-dm" data-tab="dm">
+        <!-- Collapsible Device Management Drawer -->
+        <div class="dm-overlay" id="dmOverlay" onclick="toggleDMPanel()"></div>
+        <div class="dm-drawer" id="dmDrawer">
+            <div class="panel" id="panel-dm">
                 <h2>장치 관리 및 연결</h2>
 
                 <!-- Bluetooth Connection -->
-                <div class="bluetooth-section">
-                    <div class="connection-bar">
-                        <input type="text" id="deviceName" placeholder="장치 이름" value="VIBECUE">
-                        <button class="btn btn-primary" id="connectBtn" onclick="connectBluetooth()">연결</button>
-                        <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectBluetooth()" disabled>해제</button>
-                    </div>
-                    <div id="connectionStatus" class="status-badge status-disconnected">연결 안됨</div>
+                <div class="command-section">
+                    <h3>메인 디바이스 검색</h3>
+                    <p class="ble-guide">먼저 메인 진동기의 전원을 켠 뒤, 연결 버튼을 눌러주세요.</p>
+                    <button class="btn btn-primary ble-toggle-btn" id="bleToggleBtn" onclick="toggleBleConnection()">연결</button>
                 </div>
+
+                <!-- Device Status Load -->
+                <div class="command-section">
+                    <h3>기기 설정 불러오기</h3>
+                    <button class="btn btn-primary ble-toggle-btn" onclick="loadDeviceStatus()">설정 불러오기</button>
+                    <div id="deviceStatusToggle" class="status-toggle" style="display:none;" onclick="toggleDeviceStatusInfo()">
+                        <span id="statusToggleLabel">▼ 기기 정보</span>
+                    </div>
+                    <div id="deviceStatusInfo" class="device-status-info" style="display:none;">
+                        <div class="status-row"><span class="status-label">기기유형</span><span class="status-value" id="dsType">-</span></div>
+                        <div class="status-row"><span class="status-label">기기상태</span><span class="status-value" id="dsState">-</span></div>
+                        <div class="status-row"><span class="status-label">연결된 추가장치</span><span class="status-value" id="dsConnected">-</span></div>
+                        <div class="status-row"><span class="status-label">페어링된 추가장치</span><span class="status-value" id="dsSlots">-</span></div>
+                        <div class="status-row"><span class="status-label">동작모드</span><span class="status-value" id="dsMode">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Device Setup -->
+                <div class="command-section">
+                    <h3>기기 설정하기</h3>
+                    <button class="btn btn-primary ble-toggle-btn" id="setupStartBtn" onclick="showSetupConfirm()">기기 설정하기</button>
+                    <div id="resetWaiting" class="reset-waiting" style="display:none;">
+                        <div class="reset-spinner"></div>
+                        <span>기기를 초기화하고 있습니다...</span>
+                    </div>
+                </div>
+
+                <div class="setup-section" id="setupSection">
 
                 <!-- DM Commands -->
                 <div class="command-section">
-                    <h3>장치 타입</h3>
+                    <h4>기기유형 선택</h4>
                     <div class="input-group">
-                        <div class="radio-group">
-                            <label><input type="radio" name="deviceType" value="1"><span>타입 1(센서2)</span></label>
-                            <label><input type="radio" name="deviceType" value="2" checked><span>타입 2(센서2+서브2)</span></label>
-                            <label><input type="radio" name="deviceType" value="3"><span>타입 3(센서1)</span></label>
-                            <label><input type="radio" name="deviceType" value="4"><span>타입 4(센서2+서브4)</span></label>
+                        <input type="hidden" id="deviceType" value="">
+                        <div class="custom-select" id="deviceTypeSelect">
+                            <div class="custom-select-trigger placeholder" tabindex="0" onclick="toggleDeviceTypeDropdown()">기기유형을 선택하세요</div>
+                            <div class="custom-select-options">
+                                <div class="custom-select-option" data-value="1" onclick="selectDeviceType(this)">
+                                    <div class="opt-name">기본</div>
+                                    <div class="opt-desc">진동기(가슴), 센서(발)</div>
+                                </div>
+                                <div class="custom-select-option" data-value="2" onclick="selectDeviceType(this)">
+                                    <div class="opt-name">하지집중</div>
+                                    <div class="opt-desc">진동기(가슴,허벅지), 센서(발)</div>
+                                </div>
+                                <div class="custom-select-option" data-value="3" onclick="selectDeviceType(this)">
+                                    <div class="opt-name">균형집중</div>
+                                    <div class="opt-desc">진동기(가슴,등)</div>
+                                </div>
+                                <div class="custom-select-option" data-value="4" onclick="selectDeviceType(this)">
+                                    <div class="opt-name">전신</div>
+                                    <div class="opt-desc">진동기(가슴,허벅지,팔), 센서(발)</div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="command-grid">
-                        <button class="command-btn" onclick="sendDeviceType()">타입 설정(DM:TYPE)</button>
-                        <button class="command-btn" onclick="sendCommand('DM:STATUS:REQ')">상태정보 요청 (DM:STATUS)</button>
-                        <button class="command-btn" onclick="sendCommand('DM:RESET:CONFIRM')">장치 초기화 (DM:RESET)</button>
                     </div>
                 </div>
 
                 <!-- BLE Device Scan -->
                 <div class="command-section">
-                    <h3>BLE 장치 스캔</h3>
+                    <h4>추가 기기 검색</h4>
                     <div class="command-grid">
-                        <button class="command-btn" onclick="sendCommand('DM:SCAN:INIT')">BLE 초기화 (INIT)</button>
-                        <button class="command-btn" onclick="sendCommand('DM:SCAN:START')">스캔시작 (START)</button>
-                        <button class="command-btn" onclick="sendCommand('DM:SCAN:STOP')">스캔정지 (STOP)</button>
-                        <button class="command-btn" onclick="sendCommand('DM:SETUP:DONE')">BLE 연결설정 완료 (DONE)</button>
-                        <button class="command-btn recon-btn" onclick="sendCommand('DM:SCAN:RECON')">BLE 재연결 (RECON)</button>
+                        <button class="command-btn" id="scanToggleBtn" onclick="toggleScan()">기기 찾기</button>
                     </div>
 
                     <div style="margin-top: 8px;">
-                        <label style="font-weight: 600; color: var(--text-primary); font-size: 10px;">스캔 결과</label>
+                        <label style="font-weight: 600; color: var(--text-primary); font-size: 13px;">스캔 결과</label>
                         <div id="scanResults" class="scan-results-box">
                             <span style="color: #aaa;">스캔 결과 없음</span>
                         </div>
                     </div>
 
-                    <div class="input-group" style="margin-top: 8px;">
-                        <label>장치 연결</label>
-                        <div class="connect-row">
-                            <input type="text" id="connMac" placeholder="MAC 주소">
-                            <select id="connLocation">
-                                <option value="LFOOT">왼발</option>
-                                <option value="RFOOT">오른발</option>
-                                <option value="LARM">왼팔</option>
-                                <option value="RARM">오른팔</option>
-                                <option value="LTHIGH">왼허벅지</option>
-                                <option value="RTHIGH">오른허벅지</option>
-                                <option value="BACK">등</option>
-                            </select>
-                            <button class="command-btn" onclick="sendConnectDevice()">연결</button>
+                    <div style="margin-top: 10px;">
+                        <button class="command-btn" onclick="completeSetup()" style="width: 100%;">추가기기 연결설정 완료</button>
+                    </div>
+                </div>
+
+                </div><!-- /setup-section -->
+            </div>
+            <button class="dm-fold-btn" onclick="toggleDMPanel()">닫기</button>
+        </div>
+
+        <!-- Setup Complete Dialog -->
+        <div class="confirm-overlay" id="setupCompleteOverlay">
+            <div class="confirm-dialog">
+                <div class="confirm-body">
+                    <span class="confirm-icon">✅</span>
+                    <p>설정을 종료합니다.</p>
+                    <p style="font-size: 13px; color: #888; margin-top: 4px;">설정 불러오기를 다시 실행해 주세요.</p>
+                </div>
+                <div class="confirm-actions">
+                    <button class="btn-cancel" style="flex:1;" onclick="closeSetupComplete()">확인</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Confirm Dialog -->
+        <div class="confirm-overlay" id="setupConfirmOverlay">
+            <div class="confirm-dialog">
+                <div class="confirm-body">
+                    <span class="confirm-icon">⚠️</span>
+                    <p>기기 설정하기를 진행하시면 기존 설정 정보는 초기화 됩니다. 진행하시겠습니까?</p>
+                </div>
+                <div class="confirm-actions">
+                    <button class="btn-cancel" onclick="hideSetupConfirm()">돌아가기</button>
+                    <button class="btn-proceed" onclick="proceedSetup()">진행</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body Map Popup for device location selection -->
+        <div class="confirm-overlay" id="bodymapOverlay">
+            <div class="bodymap-popup">
+                <h3>부착 위치 선택</h3>
+                <div class="bodymap-mac"><span class="bodymap-name" id="bodymapName"></span> <span id="bodymapMac"></span></div>
+                <div class="bodymap-container">
+                    <img src="bodymap.png" class="body-img" alt="body map">
+                    <!-- Indicators: person's left = viewer's right -->
+                    <div class="body-indicator" data-loc="BACK" onclick="selectBodyLocation(this)" style="top:28%; left:50%;">등</div>
+                    <div class="body-indicator" data-loc="RARM" onclick="selectBodyLocation(this)" style="top:27%; left:80%;">오른팔</div>
+                    <div class="body-indicator" data-loc="LARM" onclick="selectBodyLocation(this)" style="top:27%; left:20%;">왼팔</div>
+                    <div class="body-indicator" data-loc="RTHIGH" onclick="selectBodyLocation(this)" style="top:62%; left:71%;">오른<br>허벅지</div>
+                    <div class="body-indicator" data-loc="LTHIGH" onclick="selectBodyLocation(this)" style="top:62%; left:29%;">왼<br>허벅지</div>
+                    <div class="body-indicator" data-loc="RFOOT" onclick="selectBodyLocation(this)" style="top:91%; left:70%;">오른발</div>
+                    <div class="body-indicator" data-loc="LFOOT" onclick="selectBodyLocation(this)" style="top:91%; left:30%;">왼발</div>
+                </div>
+                <div class="bodymap-actions">
+                    <button class="btn-cancel" onclick="closeBodyMapPopup()">취소</button>
+                    <button class="btn-register" id="bodymapRegisterBtn" onclick="registerDevice()" disabled>등록</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vibration Mode Settings Popup -->
+        <div class="confirm-overlay" id="vibModeOverlay">
+            <div style="background: var(--bg-card); border-radius: 16px; padding: 20px 16px; width: calc(100% - 32px); max-width: 340px; display: flex; flex-direction: column; gap: 16px;">
+                <h3 id="vibModePopupTitle" style="text-align: center; font-size: 16px; margin: 0;">진동모드 1 설정</h3>
+                <div class="vib-slider-group" style="margin-bottom: 0;">
+                    <label>주파수 <span id="vibPopupFreqVal" style="color: var(--primary); font-weight: 700; font-size: 16px;">10</span> Hz</label>
+                    <input type="range" id="vibPopupFreq" class="vib-slider" min="10" max="100" value="10" step="10" oninput="document.getElementById('vibPopupFreqVal').textContent=this.value">
+                    <div class="vib-slider-ticks">
+                        <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span>
+                    </div>
+                </div>
+                <div class="vib-slider-group" style="margin-bottom: 0;">
+                    <label>중재시간 <span id="vibPopupDurVal" style="color: var(--primary); font-weight: 700; font-size: 16px;">1</span> 분</label>
+                    <input type="range" id="vibPopupDur" class="vib-slider" min="1" max="20" value="1" step="1" oninput="document.getElementById('vibPopupDurVal').textContent=this.value">
+                    <div class="vib-slider-ticks">
+                        <span>1</span><span>5</span><span>10</span><span>15</span><span>20</span>
+                    </div>
+                </div>
+                <div class="vib-popup-actions" style="margin-top: 0;">
+                    <button class="vib-popup-btn" onclick="closeVibModePopup()">취소</button>
+                    <button class="vib-popup-btn save" onclick="saveVibModePopup()">💾 저장</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation (hidden by default) -->
+        <div class="tab-nav" id="tabNav">
+            <button class="tab-btn active" data-tab="man" onclick="switchTab('man')"><span class="tab-icon">🕹️</span><span class="tab-text">수동</span></button>
+            <button class="tab-btn" data-tab="ds" onclick="switchTab('ds')"><span class="tab-icon">🚶</span><span class="tab-text">일상지원</span></button>
+            <button class="tab-btn" data-tab="eval" onclick="switchTab('eval')"><span class="tab-icon">📊</span><span class="tab-text">평가</span></button>
+            <button class="tab-btn" data-tab="eval-result" onclick="switchTab('eval-result')"><span class="tab-icon">📋</span><span class="tab-text">평가 결과</span></button>
+        </div>
+
+        <div class="main-content" id="mainContent">
+            <!-- Section 2: Manual Mode -->
+            <div class="panel active-tab" id="panel-man" data-tab="man">
+                <h2>수동 모드</h2>
+
+                <!-- Vibration Mode Selection -->
+                <div class="input-group">
+                    <label>진동모드 선택</label>
+                    <div class="vib-mode-row">
+                        <div class="vib-mode-card selected" id="vibModeCard1" onclick="selectVibMode(1)">
+                            <div class="vib-mode-name">진동모드 1</div>
+                            <div class="vib-mode-params">
+                                <button class="vib-mode-param-btn" onclick="event.stopPropagation(); openVibModePopup(1)"><span id="vibMode1Freq">10</span><span class="vib-mode-param-unit">Hz</span></button>
+                                <button class="vib-mode-param-btn" onclick="event.stopPropagation(); openVibModePopup(1)"><span id="vibMode1Dur">1</span><span class="vib-mode-param-unit">분</span></button>
+                            </div>
+                        </div>
+                        <div class="vib-mode-card" id="vibModeCard2" onclick="selectVibMode(2)">
+                            <div class="vib-mode-name">진동모드 2</div>
+                            <div class="vib-mode-params">
+                                <button class="vib-mode-param-btn" onclick="event.stopPropagation(); openVibModePopup(2)"><span id="vibMode2Freq">50</span><span class="vib-mode-param-unit">Hz</span></button>
+                                <button class="vib-mode-param-btn" onclick="event.stopPropagation(); openVibModePopup(2)"><span id="vibMode2Dur">5</span><span class="vib-mode-param-unit">분</span></button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Custom Command -->
-                <div class="command-section">
-                    <h3>사용자 명령</h3>
-                    <div class="connect-row">
-                        <input type="text" id="customCmd" placeholder="예: DM:STATUS:REQ" style="flex: 1;">
-                        <button class="btn btn-primary" onclick="sendCustomCommand()">전송</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 2: Manual Mode -->
-            <div class="panel" id="panel-man" data-tab="man">
-                <h2>수동 모드</h2>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                    <div class="input-group">
-                        <label>주파수 (Hz)</label>
-                        <input type="number" id="manFreq" min="10" max="100" value="10" step="10">
-                    </div>
-                    <div class="input-group">
-                        <label>강도</label>
-                        <input type="number" id="manIntensity" min="1" max="5" value="3" step="1">
-                    </div>
-                    <div class="input-group">
-                        <label>시간 (분)</label>
-                        <input type="number" id="manDuration" min="1" max="20" value="1">
-                    </div>
+                <!-- Intensity (shared) -->
+                <div class="input-group">
+                    <label>강도 <span id="intensityValue" style="font-weight:700;">3</span> / 5</label>
+                    <input type="range" id="manIntensity" class="vib-slider intensity-slider" min="1" max="5" value="3" step="1" oninput="updateIntensityColor(this.value)">
                 </div>
 
                 <div class="input-group">
-                    <label>위치 선택</label>
-                    <div class="checkbox-grid">
-                        <label class="checkbox-label"><input type="checkbox" value="1" checked>가슴</label>
-                        <label class="checkbox-label"><input type="checkbox" value="4">왼팔</label>
-                        <label class="checkbox-label"><input type="checkbox" value="5">오른팔</label>
-                        <label class="checkbox-label"><input type="checkbox" value="6">왼허벅지</label>
-                        <label class="checkbox-label"><input type="checkbox" value="7">오른허벅지</label>
+                    <label>위치 선택 <span id="manLocCount" style="font-weight:400; color:var(--text-muted);">(0개 선택)</span></label>
+                    <div class="man-bodymap-container" id="manBodymapContainer">
+                        <img src="bodymap.png" class="body-img" alt="body map">
+                        <div class="body-indicator man-loc-btn" data-loc-id="1" onclick="toggleManLocation(this)" style="top:18%; left:50%;">가슴</div>
+                        <div class="body-indicator man-loc-btn" data-loc-id="8" onclick="toggleManLocation(this)" style="top:28%; left:50%;">등</div>
+                        <div class="body-indicator man-loc-btn" data-loc-id="5" onclick="toggleManLocation(this)" style="top:27%; left:73%;">오른팔</div>
+                        <div class="body-indicator man-loc-btn" data-loc-id="4" onclick="toggleManLocation(this)" style="top:27%; left:27%;">왼팔</div>
+                        <div class="body-indicator man-loc-btn" data-loc-id="7" onclick="toggleManLocation(this)" style="top:62%; left:71%;">오른<br>허벅지</div>
+                        <div class="body-indicator man-loc-btn" data-loc-id="6" onclick="toggleManLocation(this)" style="top:62%; left:29%;">왼<br>허벅지</div>
                     </div>
                 </div>
 
                 <div class="mode-controls" style="margin-top: 8px;">
-                    <button class="btn btn-primary" onclick="sendManualStart()">시작 (MAN:START)</button>
-                    <button class="btn btn-danger" onclick="sendCommand('MAN:STOP')">정지 (MAN:STOP)</button>
+                    <button class="btn btn-primary" id="manToggleBtn" onclick="toggleManual()">자극 시작</button>
                 </div>
             </div>
 
             <!-- Section 3: Daily Support Mode -->
             <div class="panel panel-ds" id="panel-ds" data-tab="ds">
                 <h2>일상 지원 모드</h2>
+
+                <div id="dsGuideBox" style="background: #f0f4ff; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; font-size: 15px; line-height: 1.8; color: var(--text-primary); transition: background 0.3s;">
+                    <div id="dsGuideTitle" style="font-weight: 700; margin-bottom: 8px; font-size: 16px; color: var(--primary); transition: color 0.3s;">일상지원 모드 안내</div>
+                    <div id="dsGuideIdle">
+                        <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="flex-shrink:0;">1️⃣</span><span>편안하게 앉은 자세로 "시작"을 누르시면 5분간 중재 모드가 적용됩니다.</span></div>
+                        <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="flex-shrink:0;">2️⃣</span><span>5분간 중재가 끝나면 일상생활을 수행하시면 됩니다.</span></div>
+                        <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="flex-shrink:0;">3️⃣</span><span>자동 평가를 통하여 보행변수에 비대칭이 확인 되면 20분의 간격을 두고 5분간 중재가 적용됩니다.</span></div>
+                        <div style="display:flex; gap:8px;"><span style="flex-shrink:0;">4️⃣</span><span>일상운동 지원 모드는 1시간 이후 자동 종료 됩니다.</span></div>
+                    </div>
+                    <div id="dsGuideRunning" style="display: none; text-align: center; font-size: 15px; line-height: 1.6;">
+                        일상운동 지원 모드가 실행 중입니다
+                    </div>
+                </div>
+
+                <!-- DS Timer (hidden by default) -->
+                <div id="dsTimerSection" style="display: none; margin-bottom: 12px;">
+                    <div class="ds-timer-container active">
+                        <svg class="ds-timer-ring" viewBox="0 0 120 120">
+                            <circle class="ds-timer-bg" cx="60" cy="60" r="54" />
+                            <circle class="ds-timer-progress" id="dsTimerProgress" cx="60" cy="60" r="54" />
+                        </svg>
+                        <div class="ds-timer-inner">
+                            <div class="ds-timer-icon">🚶</div>
+                            <div class="ds-timer-time" id="dsTimerTime">60:00</div>
+                            <div class="ds-timer-label">남은 시간</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mode-controls">
-                    <button class="btn btn-success" onclick="sendCommand('DS:START')">시작 (DS:START)</button>
-                    <button class="btn btn-danger" onclick="sendCommand('DS:STOP')">정지 (DS:STOP)</button>
+                    <button class="btn btn-success" id="dsToggleBtn" onclick="toggleDS()">시작</button>
                 </div>
             </div>
 
             <!-- Section 4: Evaluation Mode -->
             <div class="panel panel-eval" id="panel-eval" data-tab="eval">
                 <h2>평가 모드</h2>
-                <div class="mode-controls">
-                    <button class="btn btn-warning" onclick="sendCommand('EVAL:START')">시작 (EVAL:START)</button>
-                    <button class="btn btn-danger" onclick="sendCommand('EVAL:STOP')">정지 (EVAL:STOP)</button>
+
+                <div id="evalGuideBox" style="background: #fff8ee; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; font-size: 15px; line-height: 1.8; color: var(--text-primary); transition: background 0.3s;">
+                    <div id="evalGuideTitle" style="font-weight: 700; margin-bottom: 8px; font-size: 16px; color: var(--warning-dark); transition: color 0.3s;">평가 모드 안내</div>
+
+                    <!-- Idle state: guide instructions -->
+                    <div id="evalGuideIdle">
+                        <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="flex-shrink:0;">1️⃣</span><span>10m 이상 직선으로 걸을 수 있는 장소에 서십시오.</span></div>
+                        <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="flex-shrink:0;">2️⃣</span><span>"시작" 버튼을 누른 후 평소 편안하게 걷는 속도로 10걸음 이상 걸으십시오.</span></div>
+                        <div style="display:flex; gap:8px;"><span style="flex-shrink:0;">3️⃣</span><span>진동기 및 모바일에서 진동이 오면 평가가 끝납니다.</span></div>
+                    </div>
+
+                    <!-- Countdown state: preparing -->
+                    <div id="evalGuideCountdown" style="display: none; text-align: center; padding: 8px 0;">
+                        <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">차렷 자세를 유지하세요.</div>
+                        <div class="eval-countdown-number" id="evalCountdownNumber">5</div>
+                        <div class="eval-countdown-label">초 후 걸으세요</div>
+                    </div>
+
+                    <!-- Running state: evaluation in progress -->
+                    <div id="evalGuideRunning" style="display: none; text-align: center; padding: 8px 0;">
+                        <div class="eval-running-icon">🚶</div>
+                        <div style="font-size: 15px; line-height: 1.6; margin: 8px 0 12px;">보행 평가가 진행중 입니다.</div>
+                        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">경과 시간</div>
+                        <div class="eval-running-timer" id="evalElapsedTime">00:00</div>
+                    </div>
                 </div>
 
-                <!-- Sensor Settings -->
-                <div style="margin-top: 12px; padding: 8px; background: #fff8e1; border-radius: 4px;">
-                    <h3 style="color: var(--warning-dark); margin-bottom: 8px; font-size: 11px;">센서 설정</h3>
+                <div class="mode-controls">
+                    <button class="btn btn-warning" id="evalToggleBtn" onclick="toggleEval()">시작</button>
+                </div>
+
+                <!-- Sensor Settings (hidden by default, toggled with 5-tap) -->
+                <div id="panel-sensor-settings" style="display: none; margin-top: 12px; padding: 8px; background: #fff8e1; border-radius: 4px;">
+                    <h3 style="color: var(--warning-dark); margin-bottom: 8px; font-size: 14px;">센서 설정</h3>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <div class="input-group" style="flex: 0 0 120px;">
                             <label>Position Filter</label>
@@ -1011,15 +1972,17 @@
                         </div>
                         <button class="btn btn-warning" onclick="sendPosfSlCommand()">전송 (posf_sl)</button>
                     </div>
-                    <div style="font-size: 9px; color: #888; margin-top: 4px;">범위: 0.05 ~ 0.3 (기본값: 0.2)</div>
+                    <div style="font-size: 12px; color: #888; margin-top: 4px;">범위: 0.05 ~ 0.3 (기본값: 0.2)</div>
                 </div>
+            </div>
 
-                <!-- EVAL Data -->
+            <!-- Section 4-2: Evaluation Results -->
+            <div class="panel panel-eval-result" id="panel-eval-result" data-tab="eval-result">
+                <h2>평가 결과</h2>
                 <div class="eval-data">
-                    <h3 style="color: var(--warning-dark); margin-top: 12px; font-size: 11px;">평가 데이터 모니터</h3>
                     <div class="quick-actions">
-                        <button class="btn btn-warning" onclick="clearEvalData()">초기화</button>
-                        <button class="btn btn-warning" onclick="downloadEvalData()">CSV 저장</button>
+                        <button class="btn btn-eval-result" onclick="clearEvalData()">초기화</button>
+                        <button class="btn btn-eval-result" onclick="downloadEvalData()">CSV 저장</button>
                     </div>
                     <table class="eval-table" id="evalTable">
                         <thead id="evalTableHead">
@@ -1036,7 +1999,7 @@
             </div>
 
             <!-- Section 5: Status & Logs (Always visible) -->
-            <div class="panel panel-full" id="panel-logs">
+            <div class="panel panel-full" id="panel-logs" style="display: none;">
                 <h2>상태 및 로그</h2>
 
                 <!-- Device Status -->
@@ -1060,27 +2023,46 @@
         </div>
     </div>
 
-    <script src="vibecue_v2.js"></script>
+    <script src="vibecue_v3.js"></script>
     <script>
-        // Layout toggle functionality
+        // Hidden debug log: tap title 5 times quickly
+        (function() {
+            let tapCount = 0;
+            let tapTimer = null;
+            document.querySelector('.header-title').addEventListener('click', function() {
+                tapCount++;
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
+                if (tapCount >= 5) {
+                    tapCount = 0;
+                    const logs = document.getElementById('panel-logs');
+                    const sensor = document.getElementById('panel-sensor-settings');
+                    const visible = logs.style.display !== 'none';
+                    logs.style.display = visible ? 'none' : '';
+                    if (sensor) sensor.style.display = visible ? 'none' : '';
+                }
+            });
+        })();
+
+        // Layout toggle
         let isTabMode = false;
 
         function toggleLayout() {
             isTabMode = !isTabMode;
-            const toggle = document.getElementById('layoutToggle');
             const tabNav = document.getElementById('tabNav');
             const mainContent = document.getElementById('mainContent');
+            const label = document.getElementById('layoutLabel');
 
             if (isTabMode) {
-                toggle.classList.add('tab-mode');
                 tabNav.classList.add('visible');
                 mainContent.classList.add('tab-mode');
-                switchTab('dm');
+                label.textContent = '그리드';
+                switchTab('man');
             } else {
-                toggle.classList.remove('tab-mode');
                 tabNav.classList.remove('visible');
                 mainContent.classList.remove('tab-mode');
-                document.querySelectorAll('.panel:not(.panel-full)').forEach(panel => {
+                label.textContent = '탭';
+                document.querySelectorAll('#mainContent .panel:not(.panel-full)').forEach(panel => {
                     panel.classList.remove('active-tab');
                 });
             }
@@ -1089,22 +2071,153 @@
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active', 'active-ds', 'active-eval');
+                btn.classList.remove('active', 'active-ds', 'active-eval', 'active-eval-result');
                 if (btn.dataset.tab === tabId) {
                     if (tabId === 'ds') btn.classList.add('active', 'active-ds');
                     else if (tabId === 'eval') btn.classList.add('active', 'active-eval');
+                    else if (tabId === 'eval-result') btn.classList.add('active', 'active-eval-result');
                     else btn.classList.add('active');
                 }
             });
-            document.querySelectorAll('.panel:not(.panel-full)').forEach(panel => {
+            document.querySelectorAll('#mainContent .panel:not(.panel-full)').forEach(panel => {
                 panel.classList.remove('active-tab');
                 if (panel.dataset.tab === tabId) panel.classList.add('active-tab');
             });
         }
 
+        // DM drawer toggle
+        function openDMPanel() {
+            const drawer = document.getElementById('dmDrawer');
+            if (drawer.classList.contains('open')) return;
+            drawer.classList.add('open');
+            document.getElementById('dmOverlay').classList.add('open');
+            document.getElementById('bleIndicator').classList.add('dm-open');
+            history.pushState({ popup: 'dm' }, '');
+        }
+
+        function closeDMPanel() {
+            const drawer = document.getElementById('dmDrawer');
+            if (!drawer.classList.contains('open')) return;
+            drawer.classList.remove('open');
+            document.getElementById('dmOverlay').classList.remove('open');
+            document.getElementById('bleIndicator').classList.remove('dm-open');
+            // setupSection and setupStartBtn state persist across open/close
+            // Only reset the waiting spinner if it's still showing
+            if (waitingForResetResponse) {
+                document.getElementById('resetWaiting').style.display = 'none';
+                waitingForResetResponse = false;
+            }
+            if (resetTimeoutId) { clearTimeout(resetTimeoutId); resetTimeoutId = null; }
+            // Collapse device status info on close
+            document.getElementById('deviceStatusInfo').style.display = 'none';
+        }
+
+        function toggleDMPanel() {
+            const drawer = document.getElementById('dmDrawer');
+            if (drawer.classList.contains('open')) {
+                closeDMPanel();
+                history.back();
+            } else {
+                openDMPanel();
+            }
+        }
+
+        function showSetupConfirm() {
+            if (!isConnected) {
+                alert('BLE 기기가 연결되어 있지 않습니다.\n먼저 기기를 연결해 주세요.');
+                return;
+            }
+            document.getElementById('setupConfirmOverlay').classList.add('open');
+            history.pushState({ popup: 'setupConfirm' }, '');
+        }
+
+        function hideSetupConfirm() {
+            const overlay = document.getElementById('setupConfirmOverlay');
+            if (!overlay.classList.contains('open')) return;
+            overlay.classList.remove('open');
+        }
+
+        let skipNextPopstate = false;
+
+        function proceedSetup() {
+            document.getElementById('setupConfirmOverlay').classList.remove('open');
+            document.getElementById('setupStartBtn').disabled = true;
+            // Hide setup section first, then show spinner
+            document.getElementById('setupSection').classList.remove('open');
+            const waitEl = document.getElementById('resetWaiting');
+            waitEl.style.display = 'flex';
+            waitEl.querySelector('span').textContent = '기기를 초기화하고 있습니다...';
+            waitEl.classList.remove('timeout');
+            // setupSection opens when reset response arrives
+            registeredLocations.clear();
+            waitingForResetResponse = true;
+            skipNextPopstate = true;
+            history.back();
+            // Start timeout (10 seconds)
+            if (resetTimeoutId) clearTimeout(resetTimeoutId);
+            resetTimeoutId = setTimeout(() => {
+                if (!waitingForResetResponse) return;
+                waitingForResetResponse = false;
+                resetTimeoutId = null;
+                waitEl.classList.add('timeout');
+                waitEl.querySelector('span').textContent = '초기화 응답 시간이 초과되었습니다.';
+                document.getElementById('setupStartBtn').disabled = false;
+                logReceived('⚠️ 초기화 응답 타임아웃 (10초)');
+            }, 10000);
+            sendCommand('DM:RESET:CONFIRM');
+        }
+
+        // Android back button support
+        window.addEventListener('popstate', function(e) {
+            if (skipNextPopstate) {
+                skipNextPopstate = false;
+                return;
+            }
+            const confirmOverlay = document.getElementById('setupConfirmOverlay');
+            if (confirmOverlay.classList.contains('open')) {
+                hideSetupConfirm();
+                return;
+            }
+            const drawer = document.getElementById('dmDrawer');
+            if (drawer.classList.contains('open')) {
+                closeDMPanel();
+                return;
+            }
+        });
+
+        function toggleDeviceTypeDropdown() {
+            const select = document.getElementById('deviceTypeSelect');
+            select.classList.toggle('open');
+        }
+
+        function selectDeviceType(el) {
+            const value = el.getAttribute('data-value');
+            const name = el.querySelector('.opt-name').textContent;
+            document.getElementById('deviceType').value = value;
+            const trigger = el.closest('.custom-select').querySelector('.custom-select-trigger');
+            const desc = el.querySelector('.opt-desc').textContent;
+            trigger.innerHTML = '<span class="trigger-name">' + name + '</span><span class="trigger-desc">' + desc + '</span>';
+            trigger.classList.remove('placeholder');
+            el.closest('.custom-select').querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            el.closest('.custom-select').classList.remove('open');
+            sendCommand('DM:TYPE:' + value);
+        }
+
+        document.addEventListener('click', function(e) {
+            const select = document.getElementById('deviceTypeSelect');
+            if (select && !select.contains(e.target)) {
+                select.classList.remove('open');
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             const savedLayout = localStorage.getItem('vibecue_layout');
-            if (savedLayout === 'tab') toggleLayout();
+            if (savedLayout === 'tab') {
+                toggleLayout();
+            } else if (savedLayout === null && window.innerWidth <= 768) {
+                toggleLayout();
+            }
         });
     </script>
 </body>
