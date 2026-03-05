@@ -35,6 +35,7 @@ let evalCountdownValue = 5;  // Eval countdown seconds remaining
 let evalElapsedInterval = null;  // Eval elapsed timer interval
 let evalElapsedSeconds = 0;  // Eval elapsed time in seconds
 const EVAL_COUNTDOWN_SECONDS = 5;  // Countdown before eval starts
+let evalChartMetric = 'speed';  // Butterfly chart metric toggle: 'speed' or 'distance'
 let dsTimerInterval = null;  // DS countdown timer interval
 let dsRemainingSeconds = 3600;  // DS remaining time in seconds
 const DS_TOTAL_SECONDS = 3600;  // DS total duration: 60 minutes
@@ -1335,7 +1336,7 @@ function handleEvalStopData(message) {
     }
 
     const parts = dataMatch[1].split(',').map(s => s.trim());
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = formatEvalTimestamp(new Date());
 
     if (parts.length === 5) {
         // Type 1, 2, 4: Foot sensors average (L_dist, L_speed, R_dist, R_speed, asymmetry)
@@ -1374,6 +1375,9 @@ function updateEvalTable() {
     const tbody = document.getElementById('evalTableBody');
     const thead = document.getElementById('evalTableHead');
 
+    // Render the butterfly chart
+    renderButterflyChart();
+
     // Clear existing rows
     tbody.innerHTML = '';
 
@@ -1384,12 +1388,18 @@ function updateEvalTable() {
 
     // Check data type and update header (shows average data from EVAL:STOP)
     const dataType = displayRows[0].type;
+    // Helper: split "YY.MM.DD HH:MM" into two-line cell
+    const timeCell = (t) => {
+        const parts = t.split(' ');
+        return parts.length === 2 ? `${parts[0]}<br>${parts[1]}` : t;
+    };
+
     if (dataType === 'foot') {
-        thead.innerHTML = '<tr><th>Time</th><th>L Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th><th>R Avg Dist(cm)</th><th>R Avg Spd(cm/s)</th><th>Asym(%)</th></tr>';
+        thead.innerHTML = '<tr><th style="width:18%">시간</th><th>L거리<br>(cm)</th><th>L속도<br>(cm/s)</th><th>R거리<br>(cm)</th><th>R속도<br>(cm/s)</th><th>비대칭<br>(%)</th></tr>';
         displayRows.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${row.time}</td>
+                <td style="white-space:normal;line-height:1.3;">${timeCell(row.time)}</td>
                 <td>${row.lDist}</td>
                 <td>${row.lSpeed}</td>
                 <td>${row.rDist}</td>
@@ -1399,11 +1409,11 @@ function updateEvalTable() {
             tbody.appendChild(tr);
         });
     } else if (dataType === 'back') {
-        thead.innerHTML = '<tr><th>Time</th><th>L Avg Tilt(°)</th><th>R Avg Tilt(°)</th><th>Asym(%)</th></tr>';
+        thead.innerHTML = '<tr><th style="width:22%">시간</th><th>L기울기<br>(°)</th><th>R기울기<br>(°)</th><th>비대칭<br>(%)</th></tr>';
         displayRows.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${row.time}</td>
+                <td style="white-space:normal;line-height:1.3;">${timeCell(row.time)}</td>
                 <td>${row.lTilt.toFixed(1)}</td>
                 <td>${row.rTilt.toFixed(1)}</td>
                 <td>${row.asymmetry}</td>
@@ -1417,9 +1427,138 @@ function updateEvalTable() {
  * Clear EVAL data
  */
 function clearEvalData() {
+    if (evalDataRows.length > 0 && !confirm('평가 데이터를 모두 삭제하시겠습니까?')) {
+        return;
+    }
     evalDataRows = [];
     updateEvalTable();
     logSent('📊 EVAL data cleared');
+}
+
+/**
+ * Merge new eval rows into evalDataRows using time as dedup key.
+ * Returns { added, skipped } counts.
+ */
+function mergeEvalData(newRows) {
+    const existingTimes = new Set(evalDataRows.map(r => r.time));
+
+    let added = 0, skipped = 0;
+    newRows.forEach(row => {
+        if (existingTimes.has(row.time)) {
+            skipped++;
+        } else {
+            evalDataRows.push(row);
+            existingTimes.add(row.time);
+            added++;
+        }
+    });
+
+    // Sort by time (YY.MM.DD HH:MM format — lexicographic = chronological)
+    evalDataRows.sort((a, b) => a.time.localeCompare(b.time));
+
+    return { added, skipped };
+}
+
+/**
+ * Import EVAL data from a CSV file, merge with existing data.
+ * Called by <input type="file" onchange="importEvalCsv(this)">
+ */
+function importEvalCsv(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result.trim();
+            const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+
+            if (lines.length < 2) {
+                alert('CSV 파일에 데이터가 없습니다.');
+                input.value = '';
+                return;
+            }
+
+            // Detect type from #type: comment line or header columns
+            let csvType = null;
+            let headerIdx = 0;
+
+            if (lines[0].startsWith('#type:')) {
+                csvType = lines[0].replace('#type:', '').split(',')[0].trim();
+                headerIdx = 1;
+            }
+
+            const header = lines[headerIdx].toLowerCase();
+
+            if (!csvType) {
+                if (header.includes('dist') || header.includes('speed')) {
+                    csvType = 'foot';
+                } else if (header.includes('tilt')) {
+                    csvType = 'back';
+                } else {
+                    alert('CSV 타입을 판별할 수 없습니다.\n헤더에 Dist/Speed 또는 Tilt 정보가 필요합니다.');
+                    input.value = '';
+                    return;
+                }
+            }
+
+            // Check type mismatch with existing data
+            if (evalDataRows.length > 0 && evalDataRows[0].type !== csvType) {
+                alert(`타입 불일치: 현재 데이터는 "${evalDataRows[0].type}" 이고, CSV는 "${csvType}" 입니다.\n기존 데이터를 초기화한 후 다시 시도하세요.`);
+                input.value = '';
+                return;
+            }
+
+            // Parse data rows
+            const newRows = [];
+            for (let i = headerIdx + 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line || line.startsWith('#')) continue;
+
+                const cols = line.split(',');
+
+                if (csvType === 'foot' && cols.length >= 6) {
+                    newRows.push({
+                        type: 'foot',
+                        time: cols[0].trim(),
+                        lDist: parseInt(cols[1]) || 0,
+                        lSpeed: parseInt(cols[2]) || 0,
+                        rDist: parseInt(cols[3]) || 0,
+                        rSpeed: parseInt(cols[4]) || 0,
+                        asymmetry: parseInt(cols[5]) || 0
+                    });
+                } else if (csvType === 'back' && cols.length >= 4) {
+                    newRows.push({
+                        type: 'back',
+                        time: cols[0].trim(),
+                        lTilt: parseFloat(cols[1]) || 0,
+                        rTilt: parseFloat(cols[2]) || 0,
+                        asymmetry: parseInt(cols[3]) || 0
+                    });
+                }
+            }
+
+            if (newRows.length === 0) {
+                alert('파싱 가능한 데이터 행이 없습니다.');
+                input.value = '';
+                return;
+            }
+
+            const { added, skipped } = mergeEvalData(newRows);
+            updateEvalTable();
+
+            alert(`CSV 불러오기 완료\n추가: ${added}건, 중복 스킵: ${skipped}건`);
+            logSent(`📥 CSV imported: +${added}, skipped ${skipped} (${csvType})`);
+        } catch (err) {
+            alert('CSV 파싱 오류: ' + err.message);
+            console.error('CSV import error:', err);
+        }
+
+        // Reset file input so same file can be re-selected
+        input.value = '';
+    };
+
+    reader.readAsText(file, 'UTF-8');
 }
 
 /**
@@ -1463,13 +1602,16 @@ function downloadEvalData() {
     let csv = '';
     const dataType = evalDataRows[0].type;
 
+    // Type comment line for import compatibility
+    csv += `#type:${dataType}\n`;
+
     if (dataType === 'foot') {
-        csv = 'Time,L_Avg_Dist(cm),L_Avg_Speed(cm/s),R_Avg_Dist(cm),R_Avg_Speed(cm/s),Asymmetry(%)\n';
+        csv += 'Time,L_Avg_Dist(cm),L_Avg_Speed(cm/s),R_Avg_Dist(cm),R_Avg_Speed(cm/s),Asymmetry(%)\n';
         evalDataRows.forEach(row => {
             csv += `${row.time},${row.lDist},${row.lSpeed},${row.rDist},${row.rSpeed},${row.asymmetry}\n`;
         });
     } else if (dataType === 'back') {
-        csv = 'Time,L_Avg_Tilt(deg),R_Avg_Tilt(deg),Asymmetry(%)\n';
+        csv += 'Time,L_Avg_Tilt(deg),R_Avg_Tilt(deg),Asymmetry(%)\n';
         evalDataRows.forEach(row => {
             csv += `${row.time},${row.lTilt.toFixed(1)},${row.rTilt.toFixed(1)},${row.asymmetry}\n`;
         });
@@ -1489,6 +1631,309 @@ function downloadEvalData() {
     URL.revokeObjectURL(url);
 
     logSent(`📥 Downloaded: ${filename}`);
+}
+
+/**
+ * Format timestamp for eval data: "YY.MM.DD HH:MM"
+ */
+function formatEvalTimestamp(date) {
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mi = String(date.getMinutes()).padStart(2, '0');
+    return `${yy}.${mm}.${dd} ${hh}:${mi}`;
+}
+
+/**
+ * Switch butterfly chart metric for foot type (speed vs distance)
+ */
+function switchEvalMetric(metric) {
+    evalChartMetric = metric;
+    document.querySelectorAll('.eval-metric-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.metric === metric);
+    });
+    renderButterflyChart();
+}
+
+/**
+ * Escape XML special characters for safe SVG text content
+ */
+function escapeXml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Render butterfly/diverging bar chart from evalDataRows
+ * Pure SVG generation — no external libraries
+ */
+function renderButterflyChart() {
+    const container = document.getElementById('evalChartContainer');
+    const chartSection = document.getElementById('evalChartSection');
+    const emptyState = document.getElementById('evalEmptyState');
+    const toggleDiv = document.getElementById('evalChartToggle');
+    const tableDetails = document.getElementById('evalTableDetails');
+
+    if (!container) return;
+
+    const displayRows = evalDataRows.slice(-20);
+
+    // Handle empty state
+    if (displayRows.length === 0) {
+        chartSection.style.display = 'none';
+        emptyState.style.display = 'block';
+        if (tableDetails) tableDetails.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    chartSection.style.display = 'block';
+    emptyState.style.display = 'none';
+    if (tableDetails) tableDetails.style.display = 'block';
+
+    const dataType = displayRows[0].type;
+
+    // Show/hide metric toggle
+    if (toggleDiv) {
+        toggleDiv.style.display = (dataType === 'foot') ? 'flex' : 'none';
+    }
+
+    // === SVG Layout Constants (in viewBox units) ===
+    const svgWidth = 600;
+    const rowHeight = 52;
+    const topPadding = 8;
+    const bottomPadding = 8;
+    const svgHeight = topPadding + (displayRows.length * rowHeight) + bottomPadding;
+
+    const leftPadding = 4;          // left margin so text isn't clipped
+    const timeLabelWidth = 100;     // left gutter for time labels
+    const rightPadding = 10;
+    const barAreaStart = leftPadding + timeLabelWidth;
+    const centerX = barAreaStart + (svgWidth - barAreaStart - rightPadding) / 2;
+    const barAreaHalf = (svgWidth - barAreaStart - rightPadding) / 2 - 36;
+    const barHeight = 24;
+    const barYOffset = (rowHeight - barHeight) / 2;
+
+    // === Extract values based on type and metric ===
+    let leftValues = [];
+    let rightValues = [];
+    let asymValues = [];
+    let timeLabels = [];
+    let unitLabel = '';
+
+    displayRows.forEach(row => {
+        timeLabels.push(row.time);
+        asymValues.push(row.asymmetry);
+
+        if (dataType === 'foot') {
+            if (evalChartMetric === 'speed') {
+                leftValues.push(row.lSpeed);
+                rightValues.push(row.rSpeed);
+                unitLabel = 'cm/s';
+            } else {
+                leftValues.push(row.lDist);
+                rightValues.push(row.rDist);
+                unitLabel = 'cm';
+            }
+        } else {
+            // back type
+            leftValues.push(row.lTilt);
+            rightValues.push(row.rTilt);
+            unitLabel = '°';
+        }
+    });
+
+    // === Calculate scale ===
+    const allValues = [...leftValues, ...rightValues];
+    const maxVal = Math.max(...allValues, 1);
+    const scale = barAreaHalf / maxVal;
+
+    // === Responsive: scale fonts inversely so they stay readable ===
+    const containerWidth = container.clientWidth || 360;
+    const fontScale = Math.max(svgWidth / containerWidth, 1);  // e.g., 600/350 ≈ 1.71
+    const fs = (basePx) => Math.round(basePx * fontScale);     // scaled font size
+
+    const pxPerUnit = containerWidth / svgWidth;
+    const pixelHeight = Math.round(svgHeight * pxPerUnit);
+
+    // Max 5 rows visible, then scroll
+    const maxVisibleRows = 5;
+    const maxVisibleHeight = Math.round((topPadding + maxVisibleRows * rowHeight + bottomPadding) * pxPerUnit);
+    container.style.maxHeight = (displayRows.length > maxVisibleRows) ? maxVisibleHeight + 'px' : 'none';
+
+    // Scaled sizes
+    const dotR = Math.round(8 * fontScale);
+    const strokeW = Math.max(1.5 * fontScale, 1.5).toFixed(1);
+    const trendW = Math.max(1.5 * fontScale, 1.5).toFixed(1);
+    const dotStrokeW = Math.max(2 * fontScale, 2).toFixed(1);
+
+    // === Build SVG (width 100%, fixed pixel height for scroll) ===
+    let svg = `<svg width="100%" height="${pixelHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Style definitions — font sizes scaled for readability
+    svg += `<style>
+        .ev-axis { stroke: #9aa0aa; stroke-width: ${strokeW}; }
+        .ev-grid { stroke: #eaecf0; stroke-width: 0.5; }
+        .ev-time { fill: #6a7080; font-size: ${fs(13)}px; font-family: 'Segoe UI', sans-serif; }
+        .ev-bar-l { fill: #6678b8; opacity: 0.85; }
+        .ev-bar-r { fill: #e07070; opacity: 0.85; }
+        .ev-val { font-size: ${fs(12)}px; font-family: 'Segoe UI', sans-serif; font-weight: 600; }
+        .ev-val-l { fill: #5568a8; }
+        .ev-val-r { fill: #c85050; }
+        .ev-val-w { fill: white; }
+        .ev-asym { font-size: ${fs(11)}px; font-family: 'Segoe UI', sans-serif; font-weight: 700; }
+        .ev-dot-g { fill: #5a9e6f; }
+        .ev-dot-m { fill: #d4944a; }
+        .ev-dot-s { fill: #c86b6b; }
+        .ev-trend { fill: none; stroke: #5a9e6f; stroke-width: ${trendW}; stroke-dasharray: 6 4; opacity: 0.7; }
+    </style>`;
+
+    // Center vertical axis line
+    svg += `<line class="ev-axis" x1="${centerX}" y1="${topPadding}" x2="${centerX}" y2="${svgHeight - bottomPadding}" />`;
+
+    // === First pass: collect data for trend line and render bars ===
+    const asymDotPositions = [];
+    let barsLayer = '';
+    let dotsLayer = '';
+
+    displayRows.forEach((row, i) => {
+        const rowY = topPadding + (i * rowHeight);
+        const barY = rowY + barYOffset;
+        const barCenterY = barY + barHeight / 2;
+
+        const leftVal = leftValues[i];
+        const rightVal = rightValues[i];
+        const asymVal = asymValues[i];
+
+        // Horizontal grid line (row separator)
+        if (i > 0) {
+            barsLayer += `<line class="ev-grid" x1="${barAreaStart}" y1="${rowY}" x2="${svgWidth - rightPadding}" y2="${rowY}" />`;
+        }
+
+        // Time label (left gutter, start-aligned with left padding)
+        barsLayer += `<text class="ev-time" x="${leftPadding}" y="${barCenterY}" text-anchor="start" dominant-baseline="central">${escapeXml(timeLabels[i])}</text>`;
+
+        // Left bar (extends leftward from center)
+        const leftBarWidth = Math.max(leftVal * scale, 2);
+        const leftBarX = centerX - leftBarWidth;
+        barsLayer += `<rect class="ev-bar-l" x="${leftBarX}" y="${barY}" width="${leftBarWidth}" height="${barHeight}" rx="3" ry="3" />`;
+
+        // Left value label
+        const leftLabelStr = dataType === 'back' ? leftVal.toFixed(1) + unitLabel : leftVal + unitLabel;
+        if (leftBarWidth > 55) {
+            barsLayer += `<text class="ev-val ev-val-w" x="${leftBarX + 6}" y="${barCenterY}" text-anchor="start" dominant-baseline="central">${leftLabelStr}</text>`;
+        } else {
+            barsLayer += `<text class="ev-val ev-val-l" x="${leftBarX - 4}" y="${barCenterY}" text-anchor="end" dominant-baseline="central">${leftLabelStr}</text>`;
+        }
+
+        // Right bar (extends rightward from center)
+        const rightBarWidth = Math.max(rightVal * scale, 2);
+        barsLayer += `<rect class="ev-bar-r" x="${centerX}" y="${barY}" width="${rightBarWidth}" height="${barHeight}" rx="3" ry="3" />`;
+
+        // Right value label
+        const rightLabelStr = dataType === 'back' ? rightVal.toFixed(1) + unitLabel : rightVal + unitLabel;
+        if (rightBarWidth > 55) {
+            barsLayer += `<text class="ev-val ev-val-w" x="${centerX + rightBarWidth - 6}" y="${barCenterY}" text-anchor="end" dominant-baseline="central">${rightLabelStr}</text>`;
+        } else {
+            barsLayer += `<text class="ev-val ev-val-r" x="${centerX + rightBarWidth + 4}" y="${barCenterY}" text-anchor="start" dominant-baseline="central">${rightLabelStr}</text>`;
+        }
+
+        // Asymmetry dot — position shifts toward dominant side
+        const asymShift = (rightVal - leftVal) / (maxVal || 1) * (barAreaHalf * 0.5);
+        const dotX = centerX + asymShift;
+        const dotRadius = dotR;
+        let dotClass = 'ev-dot-g';
+        if (asymVal >= 20) dotClass = 'ev-dot-s';
+        else if (asymVal >= 10) dotClass = 'ev-dot-m';
+
+        // Visible dot
+        dotsLayer += `<circle class="${dotClass}" cx="${dotX}" cy="${barCenterY}" r="${dotRadius}" stroke="white" stroke-width="${dotStrokeW}" />`;
+        // Larger invisible touch target
+        dotsLayer += `<circle class="ev-dot-touch" cx="${dotX}" cy="${barCenterY}" r="${dotRadius * 2}" fill="transparent" data-idx="${i}" style="cursor:pointer;" />`;
+        // Hidden tooltip label (shown on tap)
+        const lblBg = asymVal >= 20 ? '#c86b6b' : asymVal >= 10 ? '#d4944a' : '#5a9e6f';
+        const lblW = fs(11) * (String(asymVal).length + 1) * 0.65;
+        const lblH = fs(11) * 1.6;
+        const lblY = barY - 4 - lblH;
+        dotsLayer += `<g class="ev-tooltip" data-idx="${i}" style="opacity:0; pointer-events:none; transition: opacity 0.15s;">`;
+        dotsLayer += `<rect x="${dotX - lblW/2}" y="${lblY}" width="${lblW}" height="${lblH}" rx="4" fill="${lblBg}" />`;
+        dotsLayer += `<text x="${dotX}" y="${lblY + lblH/2}" text-anchor="middle" dominant-baseline="central" fill="white" style="font-size:${fs(11)}px; font-family:'Segoe UI',sans-serif; font-weight:700;">${asymVal}%</text>`;
+        dotsLayer += `</g>`;
+
+        asymDotPositions.push({ x: dotX, y: barCenterY });
+    });
+
+    // === Assemble SVG layers: bars → trend line → dots (on top) ===
+    svg += barsLayer;
+
+    // Trend line (behind dots)
+    if (asymDotPositions.length >= 2) {
+        let pathD = `M ${asymDotPositions[0].x} ${asymDotPositions[0].y}`;
+        for (let i = 1; i < asymDotPositions.length; i++) {
+            pathD += ` L ${asymDotPositions[i].x} ${asymDotPositions[i].y}`;
+        }
+        svg += `<path class="ev-trend" d="${pathD}" />`;
+    }
+
+    // Dots on top of trend line
+    svg += dotsLayer;
+
+    svg += '</svg>';
+
+    container.innerHTML = svg;
+
+    // === Event delegation: tap dot to show/hide tooltip ===
+    const svgEl = container.querySelector('svg');
+    if (svgEl) {
+        svgEl.addEventListener('click', (e) => {
+            const touch = e.target.closest('.ev-dot-touch');
+            // Hide all tooltips first
+            svgEl.querySelectorAll('.ev-tooltip').forEach(tt => {
+                tt.style.opacity = '0';
+                tt.style.pointerEvents = 'none';
+            });
+            if (touch) {
+                const idx = touch.getAttribute('data-idx');
+                const tooltip = svgEl.querySelector(`.ev-tooltip[data-idx="${idx}"]`);
+                if (tooltip) {
+                    tooltip.style.opacity = '1';
+                    tooltip.style.pointerEvents = 'auto';
+                }
+            }
+        });
+    }
+}
+
+/**
+ * Load sample eval data for testing (callable from browser console)
+ * Usage: loadSampleEvalData('foot') or loadSampleEvalData('back')
+ */
+function loadSampleEvalData(type) {
+    if (type === 'back') {
+        evalDataRows = [
+            {type:'back', time:'26.02.20 09:00', lTilt:2.1, rTilt:2.3, asymmetry:4},
+            {type:'back', time:'26.02.21 10:30', lTilt:3.5, rTilt:1.8, asymmetry:18},
+            {type:'back', time:'26.02.22 14:00', lTilt:5.2, rTilt:1.5, asymmetry:35},
+            {type:'back', time:'26.02.23 11:00', lTilt:2.8, rTilt:2.5, asymmetry:6},
+            {type:'back', time:'26.02.24 16:00', lTilt:4.0, rTilt:2.0, asymmetry:22},
+            {type:'back', time:'26.02.25 09:30', lTilt:3.0, rTilt:2.8, asymmetry:3},
+            {type:'back', time:'26.02.26 15:00', lTilt:2.5, rTilt:3.8, asymmetry:15},
+            {type:'back', time:'26.02.27 10:00', lTilt:2.2, rTilt:2.4, asymmetry:5},
+        ];
+    } else {
+        evalDataRows = [
+            {type:'foot', time:'26.02.20 14:30', lDist:52, lSpeed:78, rDist:55, rSpeed:80, asymmetry:3},
+            {type:'foot', time:'26.02.21 18:00', lDist:48, lSpeed:70, rDist:55, rSpeed:80, asymmetry:12},
+            {type:'foot', time:'26.02.22 12:00', lDist:40, lSpeed:60, rDist:58, rSpeed:110, asymmetry:30},
+            {type:'foot', time:'26.02.23 22:00', lDist:50, lSpeed:90, rDist:52, rSpeed:80, asymmetry:5},
+            {type:'foot', time:'26.02.24 10:00', lDist:55, lSpeed:85, rDist:50, rSpeed:75, asymmetry:8},
+            {type:'foot', time:'26.02.25 15:30', lDist:42, lSpeed:65, rDist:56, rSpeed:95, asymmetry:19},
+            {type:'foot', time:'26.02.26 09:00', lDist:53, lSpeed:82, rDist:54, rSpeed:84, asymmetry:2},
+            {type:'foot', time:'26.02.27 17:00', lDist:45, lSpeed:72, rDist:58, rSpeed:98, asymmetry:14},
+        ];
+    }
+    updateEvalTable();
+    console.log(`📊 Loaded ${evalDataRows.length} sample ${type} data rows`);
 }
 
 /**
