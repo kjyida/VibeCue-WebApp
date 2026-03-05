@@ -1349,30 +1349,226 @@
 
         .eval-table {
             width: 100%;
-            border-collapse: collapse;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
             margin-top: 6px;
             background: white;
             border-radius: 8px;
-            overflow: hidden;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .eval-table th,
         .eval-table td {
-            padding: 8px 6px;
+            padding: 6px 3px;
             text-align: center;
-            border: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .eval-table th:first-child,
+        .eval-table td:first-child {
+            border-left: none;
+        }
+
+        .eval-table th:last-child,
+        .eval-table td:last-child {
+            border-right: none;
         }
 
         .eval-table th {
             background: var(--warning);
             color: white;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 10px;
         }
 
         .eval-table tr:nth-child(even) {
             background: var(--bg-main);
+        }
+
+        /* ===== Butterfly Chart Styles ===== */
+        .eval-chart-section {
+            margin-top: 10px;
+            margin-bottom: 12px;
+        }
+
+        /* Metric toggle (foot type: speed vs distance) */
+        .eval-chart-toggle {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+            background: var(--bg-main);
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .eval-metric-btn {
+            flex: 1;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .eval-metric-btn.active {
+            background: #8e44ad;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(142, 68, 173, 0.3);
+        }
+
+        /* Chart header labels */
+        .eval-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4px;
+            margin-bottom: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .eval-chart-label-left {
+            color: var(--primary);
+        }
+
+        .eval-chart-label-center {
+            color: var(--text-muted);
+        }
+
+        .eval-chart-label-right {
+            color: #e07070;
+        }
+
+        /* SVG container — max 5 rows visible, then scroll */
+        .eval-chart-container {
+            width: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+        }
+
+        .eval-chart-container svg {
+            display: block;
+        }
+
+        /* Legend */
+        .eval-chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .legend-dash {
+            width: 14px;
+            height: 0;
+            border-top: 2px dashed #5a9e6f;
+            display: inline-block;
+        }
+
+        /* Empty state */
+        .eval-empty-state {
+            text-align: center;
+            padding: 30px 16px;
+            color: var(--text-muted);
+        }
+
+        .eval-empty-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        .eval-empty-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .eval-empty-sub {
+            font-size: 12px;
+        }
+
+        /* Table collapsible details */
+        .eval-table-details {
+            margin-top: 10px;
+        }
+
+        /* Table scroll wrapper — max 6 rows visible, then scroll */
+        .eval-table-scroll {
+            max-height: 240px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+        }
+
+        .eval-table-scroll .eval-table {
+            margin-top: 0;
+        }
+
+        .eval-table-scroll .eval-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #8e44ad;
+            box-shadow: 0 1px 0 var(--border);
+        }
+
+        .eval-table-summary {
+            cursor: pointer;
+            font-size: 12px;
+            color: #8e44ad;
+            font-weight: 600;
+            padding: 6px 0;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .eval-table-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .eval-table-summary::after {
+            content: '▸';
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+
+        .eval-table-details[open] .eval-table-summary::after {
+            transform: rotate(90deg);
         }
 
         /* Quick Actions */
@@ -1983,24 +2179,73 @@
                     <div class="quick-actions">
                         <button class="btn btn-eval-result" onclick="clearEvalData()">초기화</button>
                         <button class="btn btn-eval-result" onclick="downloadEvalData()">CSV 저장</button>
+                        <button class="btn btn-eval-result" onclick="document.getElementById('evalCsvInput').click()">CSV 불러오기</button>
+                        <input type="file" accept=".csv" id="evalCsvInput" style="display:none" onchange="importEvalCsv(this)">
                     </div>
-                    <table class="eval-table" id="evalTable">
-                        <thead id="evalTableHead">
-                            <tr>
-                                <th>Time</th>
-                                <th>L Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th>
-                                <th>R Avg Dist(cm)</th><th>R Avg Spd(cm/s)</th>
-                                <th>Asym(%)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="evalTableBody"></tbody>
-                    </table>
+
+                    <!-- Butterfly Chart Section -->
+                    <div class="eval-chart-section" id="evalChartSection" style="display: none;">
+                        <!-- Metric toggle (foot type only) -->
+                        <div class="eval-chart-toggle" id="evalChartToggle" style="display: none;">
+                            <button class="eval-metric-btn active" data-metric="speed" onclick="switchEvalMetric('speed')">속도 (cm/s)</button>
+                            <button class="eval-metric-btn" data-metric="distance" onclick="switchEvalMetric('distance')">거리 (cm)</button>
+                        </div>
+                        <!-- Chart header labels -->
+                        <div class="eval-chart-header">
+                            <span class="eval-chart-label-left">◀ 왼쪽</span>
+                            <span class="eval-chart-label-center">비대칭</span>
+                            <span class="eval-chart-label-right">오른쪽 ▶</span>
+                        </div>
+                        <!-- SVG chart container -->
+                        <div class="eval-chart-container" id="evalChartContainer"></div>
+                        <!-- Legend -->
+                        <div class="eval-chart-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background:#5a9e6f;"></span> 양호 (0~10%)</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#d4944a;"></span> 주의 (10~20%)</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#c86b6b;"></span> 심각 (20%+)</span>
+                            <span class="legend-item"><span class="legend-dash"></span> 추세선</span>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div class="eval-empty-state" id="evalEmptyState">
+                        <div class="eval-empty-icon">📊</div>
+                        <div class="eval-empty-text">아직 평가 결과가 없습니다</div>
+                        <div class="eval-empty-sub">평가 모드를 실행하면 결과가 여기에 표시됩니다</div>
+                    </div>
+
+                    <!-- Collapsible data table -->
+                    <details class="eval-table-details" id="evalTableDetails" style="display: none;">
+                        <summary class="eval-table-summary">📋 상세 데이터 테이블</summary>
+                        <div class="eval-table-scroll">
+                            <table class="eval-table" id="evalTable">
+                                <thead id="evalTableHead">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>L Avg Dist(cm)</th><th>L Avg Spd(cm/s)</th>
+                                        <th>R Avg Dist(cm)</th><th>R Avg Spd(cm/s)</th>
+                                        <th>Asym(%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="evalTableBody"></tbody>
+                            </table>
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- Section 5: Status & Logs (Always visible) -->
             <div class="panel panel-full" id="panel-logs" style="display: none;">
                 <h2>상태 및 로그</h2>
+
+                <!-- Sample Data Loader -->
+                <div style="margin-bottom: 12px; padding: 10px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px;">
+                    <h3 style="font-size: 13px; color: #e65100; margin-bottom: 8px;">샘플 데이터 로드</h3>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="loadSampleEvalData('foot')" style="flex:1; padding: 8px 12px; border: none; border-radius: 6px; background: #ff9800; color: white; font-size: 13px; font-weight: 600; cursor: pointer;">Foot 샘플</button>
+                        <button onclick="loadSampleEvalData('back')" style="flex:1; padding: 8px 12px; border: none; border-radius: 6px; background: #ff9800; color: white; font-size: 13px; font-weight: 600; cursor: pointer;">Back 샘플</button>
+                    </div>
+                </div>
 
                 <!-- Device Status -->
                 <div class="device-status">
